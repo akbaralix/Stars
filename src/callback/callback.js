@@ -194,17 +194,44 @@ Bu yerda siz foydalanuvchilarni taklif qilishingiz va har biri uchun 2 ⭐ (star
         const giftIcon = parts[2] || "🎁";
 
         if (user.balance < price) {
-          return bot.answerCallbackQuery(query.id, {
-            text: "❌ Balans yetarli emas",
-            show_alert: true,
-          });
+          return bot.sendMessage(
+            chatID,
+            "*🚫 Balans yetarli emas!*\n\n _Do‘stlaringizni taklif qilib yoki yulduz yig‘ib qayta urinib ko‘ring ✨_",
+            {
+              parse_mode: "Markdown",
+              ...kb.ortga,
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {
+                      text: "➕ Taklif qilish",
+                      url: `https://t.me/share/url?url=https://t.me/AkaStarsBot?start=${userId}&text=${encodeURIComponent("🎉 Do'stim, mana bu botda bepul Stars yig'ishing mumkin! Hozir kirib ko'ring! 🎁")}`,
+                    },
+                  ],
+                ],
+              },
+            },
+          );
         }
 
         if (user.totalInvited < 5) {
-          return bot.answerCallbackQuery(query.id, {
-            text: "⚠️ Kamida 5 ta do‘st taklif qilishingiz kerak",
-            show_alert: true,
-          });
+          return bot.sendMessage(
+            chatID,
+            "*⚠️ Siz hali 5 do‘stni taklif qilmagansiz!*\n\n🎁 Do‘stlaringizni taklif qiling va sovg‘alarni qo‘lga kiriting!",
+            {
+              parse_mode: "Markdown",
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {
+                      text: "➕ Taklif qilish",
+                      url: `https://t.me/share/url?url=https://t.me/AkaStarsBot?start=${userId}&text=${encodeURIComponent("🎉 Do'stim, mana bu botda bepul Stars yig'ishing mumkin! Hozir kirib ko'ring! 🎁")}`,
+                    },
+                  ],
+                ],
+              },
+            },
+          );
         }
 
         const order = await Order.create({

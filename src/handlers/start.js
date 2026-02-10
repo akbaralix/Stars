@@ -14,8 +14,8 @@ module.exports = (bot) => {
       // 🔐 ADMIN — darhol menyu (TEZLIK UCHUN)
       if (userId === ADMIN_ID) {
         return bot.sendMessage(chatId, "Salom admin, menyudan tanlang:", {
-          ...kb.mainMenyu,
           ...kb.adminKeyboard,
+          ...kb.mainMenyu,
         });
       }
 
