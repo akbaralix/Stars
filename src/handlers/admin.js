@@ -1,8 +1,9 @@
-const ADMIN_ID = [907402803];
 const User = require("../../beckend/User");
 const Kanal = require("../../beckend/Kanal");
 const Order = require("../../beckend/Order");
+const callback = require("../callback/callback");
 const adminState = {};
+const ADMIN_ID = process.env.ADMIN_ID;
 
 module.exports = async (bot) => {
   // Xabarni hammaga tarqatish funksiyasi
@@ -47,7 +48,11 @@ module.exports = async (bot) => {
 
       return bot.sendMessage(
         chatID,
-        `🌟 *AkaStarsBot* statistikasi.\n\n👤 Foydalanuvchilar: *${uCount}*\n📂 Buyurtmalar: *${oCount}*\n📢 Kanallar: *${kCount}*`,
+        `📊 *AkaStarsBot Statistikasi*\n\n` +
+          `👥 Foydalanuvchilar: *${uCount}*\n` +
+          `📂 Buyurtmalar: *${oCount}*\n` +
+          `📢 Kanallar: *${kCount}*\n\n` +
+          `✨ Botning faoliyati va foydalanuvchi o‘sishini kuzatib boring!`,
         { parse_mode: "Markdown" },
       );
     }
@@ -57,7 +62,11 @@ module.exports = async (bot) => {
       adminState[chatID] = { step: "waiting_for_content" };
       return bot.sendMessage(
         chatID,
-        "✍️ Barcha foydalanuvchilarga yuboriladigan xabarni yozing (matn, rasm, video...):",
+
+        "✍️ *Diqqat!* \n\n" +
+          "Endi barcha foydalanuvchilarga yuboriladigan xabarni yozing. 📩\n" +
+          "Siz matn, rasm, video yoki boshqa fayllarni yuborishingiz mumkin.",
+        { parse_mode: "Markdown" },
       );
     }
 
@@ -111,6 +120,68 @@ module.exports = async (bot) => {
       );
     }
 
+    if (text === "➖ Kanal uzish") {
+      const allChannels = await Kanal.find({});
+      if (allChannels.length === 0) {
+        return bot.sendMessage(chatID, "Ulangan kanallar yo'q!");
+      }
+
+      // Har kanal uchun bitta tugma, har biri alohida qator
+      const buttons = allChannels.map((kanal) => [
+        {
+          text: kanal.kanalNomi,
+          callback_data: `remove_kanal_${kanal.kanalId}`,
+        },
+      ]);
+
+      await bot.sendMessage(
+        chatID,
+        "📢 *O'chirmoqchi bo'lgan kanalingizni tanlang:* \n\n" +
+          "Quyidagi ro'yxatdan kanalni tanlab, uni o‘chirishingiz mumkin. ❌",
+        {
+          parse_mode: "Markdown",
+          reply_markup: { inline_keyboard: buttons },
+        },
+      );
+
+      // Stepni belgilash
+      adminState[chatID] = { step: "waiting_for_channel_removal" };
+    }
+
+    // Callback query orqali kanal o‘chirish
+    bot.on("callback_query", async (query) => {
+      const chatID = query.message.chat.id;
+      const data = query.data;
+
+      // Agar admin kanal o‘chirish holatida bo‘lsa
+      if (adminState[chatID]?.step === "waiting_for_channel_removal") {
+        if (data.startsWith("remove_kanal_")) {
+          const kanalId = data.replace("remove_kanal_", "");
+          const channel = await Kanal.findOne({ kanalId });
+
+          if (!channel) {
+            await bot.answerCallbackQuery(query.id, {
+              text: "❌ Kanal topilmadi",
+            });
+            return;
+          }
+
+          await channel.deleteOne();
+          await bot.answerCallbackQuery(query.id, {
+            text: `✅ Kanal ${channel.kanalNomi} o‘chirildi`,
+          });
+
+          // Xabarni yangilash / tugmalarni olib tashlash
+          await bot.editMessageReplyMarkup(
+            { inline_keyboard: [] },
+            { chat_id: chatID, message_id: query.message.message_id },
+          );
+
+          delete adminState[chatID];
+        }
+      }
+    });
+
     if (adminState[chatID]?.step === "waiting_for_channel_user") {
       const channelUsername = text.startsWith("@") ? text : `@${text}`;
       try {
@@ -139,7 +210,9 @@ module.exports = async (bot) => {
         delete adminState[chatID];
         return bot.sendMessage(
           chatID,
-          `✅ Kanal qo'shildi: **${chatInfo.title}**`,
+          `🎉 *Kanal muvaffaqiyatli qo‘shildi!* 🎉\n\n` +
+            `📌 Kanal nomi: **${chatInfo.title}**\n` +
+            `✅ Endi bu kanal bot bilan ishlashga tayyor.`,
           { parse_mode: "Markdown" },
         );
       } catch (error) {

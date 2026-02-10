@@ -3,8 +3,7 @@ const kb = require("./keyboard");
 const User = require("../../beckend/User");
 const Kanal = require("../../beckend/Kanal");
 
-const ADMIN_ID = 907402803;
-
+const ADMIN_ID = Number(process.env.ADMIN_ID);
 module.exports = (bot) => {
   const handleStartLogic = async (chatId, fromUser, referrerId) => {
     const userId = fromUser.id;
@@ -14,11 +13,10 @@ module.exports = (bot) => {
     try {
       // 🔐 ADMIN — darhol menyu (TEZLIK UCHUN)
       if (userId === ADMIN_ID) {
-        return bot.sendMessage(
-          chatId,
-          "Salom admin, menyudan tanlang:",
-          kb.adminKeyboard,
-        );
+        return bot.sendMessage(chatId, "Salom admin, menyudan tanlang:", {
+          ...kb.mainMenyu,
+          ...kb.adminKeyboard,
+        });
       }
 
       // 1. Kanallarni tekshirish (TEZ VARIANT)
