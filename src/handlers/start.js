@@ -9,7 +9,7 @@ module.exports = (bot) => {
     const userId = fromUser.id;
     const firstName = fromUser.first_name;
     const username = fromUser.username;
-    const STARS_PRICE = process.env.STARS_PRICE;
+    const STARS_PRICE = Number(process.env.STARS_PRICE) || 0; // Son ko'rinishiga o'tkazildi
 
     try {
       // 🔐 ADMIN — darhol menyu (TEZLIK UCHUN)
@@ -67,24 +67,30 @@ module.exports = (bot) => {
       // 3. --- AGAR HAMMA KANALGA A'ZO BO'LGAN BO'LSA ---
       let user = await User.findOne({ telegramId: userId });
 
-      if (!user || user.isSubscribed === false) {
-        if (!user) {
-          user = new User({
-            telegramId: userId,
-            firstName: firstName,
-            username: username,
-            invitedBy: referrerId && referrerId != userId ? referrerId : null,
-            isSubscribed: true,
-          });
-        } else {
-          user.isSubscribed = true;
-          if (!user.invitedBy && referrerId) user.invitedBy = referrerId;
+      // Foydalanuvchi bazada yo'q bo'lsa, yangi yaratamiz
+      if (!user) {
+        user = new User({
+          telegramId: userId,
+          firstName: firstName,
+          username: username,
+          invitedBy: referrerId && referrerId != userId ? referrerId : null,
+          isSubscribed: false, // Hali mukofot berilmagan holat
+        });
+        await user.save();
+      }
+
+      // 🎁 FAQAT BIR MARTA (isSubscribed false bo'lgandagina) BALL BERISH
+      if (user.isSubscribed === false) {
+        user.isSubscribed = true; // Ball berildi deb belgilaymiz
+
+        if (!user.invitedBy && referrerId && referrerId != userId) {
+          user.invitedBy = referrerId;
         }
 
         await user.save();
 
         // TAKLIF QILGAN ODAMGA BALL BERISH
-        if (user.invitedBy && user.invitedBy != userId) {
+        if (user.invitedBy) {
           const referrer = await User.findOne({ telegramId: user.invitedBy });
 
           if (referrer) {
