@@ -7,11 +7,6 @@ const orderSchema = new mongoose.Schema({
   username: String,
   gift: { type: String, required: true },
   price: { type: Number, required: true },
-  status: {
-    type: String,
-    enum: ["pending", "approved", "canceled"],
-    default: "pending",
-  },
   createdAt: { type: Date, default: Date.now },
 });
 

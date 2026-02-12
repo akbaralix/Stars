@@ -308,7 +308,7 @@ Bu yerda siz foydalanuvchilarni taklif qilishingiz va har biri uchun ${STARS_PRI
             show_alert: true,
           });
 
-        await Order.updateOne({ orderId }, { $set: { status: "confirmed" } });
+        await Order.deleteOne({ orderId });
         await bot.sendMessage(
           order.userId,
           `✅ Sizning buyurtmangiz tasdiqlandi! 🎉 Admin sizga sovgani yubordi uni profilingizda ko'rishingiz mumkin.`,
@@ -330,8 +330,8 @@ Bu yerda siz foydalanuvchilarni taklif qilishingiz va har biri uchun ${STARS_PRI
             text: "❌ Order topilmadi",
             show_alert: true,
           });
-
-        await Order.updateOne({ orderId }, { $set: { status: "canceled" } });
+        // orderni ochirish
+        await Order.deleteOne({ orderId });
         await bot.sendMessage(
           order.userId,
           `❌ Sizning buyurtmangiz bekor qilindi.`,
