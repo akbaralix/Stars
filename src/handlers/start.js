@@ -9,6 +9,7 @@ module.exports = (bot) => {
     const userId = fromUser.id;
     const firstName = fromUser.first_name;
     const username = fromUser.username;
+    const STARS_PRICE = process.env.STARS_PRICE;
 
     try {
       // 🔐 ADMIN — darhol menyu (TEZLIK UCHUN)
@@ -87,14 +88,14 @@ module.exports = (bot) => {
           const referrer = await User.findOne({ telegramId: user.invitedBy });
 
           if (referrer) {
-            referrer.balance += 2;
+            referrer.balance += STARS_PRICE;
             referrer.totalInvited += 1;
             await referrer.save();
 
             bot
               .sendMessage(
                 user.invitedBy,
-                `🌟 Tabriklaymiz! **${firstName}** botni to'liq faollashtirdi.\n\n*Hisobingizga:* + 2⭐ qo'shildi.`,
+                `🌟 Tabriklaymiz! **${firstName}** botni to'liq faollashtirdi.\n\n*Hisobingizga:* + ${STARS_PRICE} ⭐ qo'shildi.`,
                 { parse_mode: "Markdown" },
               )
               .catch(() => {});
@@ -106,7 +107,7 @@ module.exports = (bot) => {
       const photoPath = path.join(__dirname, "../../public/Stars.png");
 
       await bot.sendPhoto(chatId, photoPath, {
-        caption: `👋 Salom ${firstName}!
+        caption: `<b>👋 Salom <a href="tg://user?id=${userId}">${firstName}</a>!</b>
 
 ✨ Botga xush kelibsiz!
 Bu yerda siz do'stlaringizni taklif qilib, STARS ishlashingiz mumkin. 🌟
@@ -114,8 +115,8 @@ Bu yerda siz do'stlaringizni taklif qilib, STARS ishlashingiz mumkin. 🌟
 📌 Qanday boshlashni xohlaysiz?
 Boshlash uchun pastdagi menyudan tanlang! 🚀
 
-💡 Eslatma: Do'stlaringizni ko'proq taklif qilsangiz, bonus STARS kutmoqda! 🎁`,
-        parse_mode: "Markdown",
+<i>💡 Eslatma: Do'stlaringizni ko'proq taklif qilsangiz, bonus STARS kutmoqda! 🎁</i>`,
+        parse_mode: "HTML",
         ...kb.mainMenyu,
       });
     } catch (err) {

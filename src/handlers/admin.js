@@ -66,7 +66,14 @@ module.exports = async (bot) => {
         "✍️ *Diqqat!* \n\n" +
           "Endi barcha foydalanuvchilarga yuboriladigan xabarni yozing. 📩\n" +
           "Siz matn, rasm, video yoki boshqa fayllarni yuborishingiz mumkin.",
-        { parse_mode: "Markdown" },
+        {
+          parse_mode: "Markdown",
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "❌ Bekor qilish", callback_data: "cancsendall" }],
+            ],
+          },
+        },
       );
     }
 
@@ -237,6 +244,13 @@ module.exports = async (bot) => {
         chatID,
         "❌ Amallar bekor qilindi va asosiy menyuga qaytdingiz.",
       );
+    }
+
+    if (data === "cancsendall") {
+      delete adminState[chatID];
+      await bot.deleteMessage(chatID, query.message.message_id).catch(() => {});
+
+      return bot.sendMessage(chatID, "Amaliyot bekor qilindi");
     }
 
     if (data === "add_button") {

@@ -11,7 +11,8 @@ module.exports = (bot) => {
     const data = query.data;
     const firstName = query.from.first_name;
     const userId = query.from.id;
-    const ADMIN_ID = 907402803;
+    const ADMIN_ID = process.env.ADMIN_ID;
+    const STARS_PRICE = process.env.STARS_PRICE;
 
     try {
       // --- MAJBURIY OBUNA TEKSHIRUVI (Tugma bosilganda) ---
@@ -70,7 +71,6 @@ module.exports = (bot) => {
         case "topReferrals":
         case "confirm":
         case "cancel":
-          // Faqat mana shu asosiy bo'limlarga o'tgandagina eski xabarni o'chiramiz
           await bot.deleteMessage(chatID, messageID).catch(() => {});
 
           if (data === "balance") {
@@ -83,7 +83,7 @@ module.exports = (bot) => {
           if (data === "invite") {
             return bot.sendMessage(
               chatID,
-              `🎉 **Do'stlarni taklif qiling va havolangiz orqali botni faollashtirgan har bir kishi uchun 2 ⭐️ ga ega bo'ling!**\n\n` +
+              `🎉 **Do'stlarni taklif qiling va havolangiz orqali botni faollashtirgan har bir kishi uchun ${STARS_PRICE} ⭐️ ga ega bo'ling!**\n\n` +
                 `🔗 **Sizning shaxsiy havolangiz (nusxalash uchun bosing):**\n\n` +
                 `\`https://t.me/AkaStarsBot?start=${userId}\`\n\n` +
                 `🚀 **Havolani qanday tarqatish mumkin?**\n` +
@@ -97,23 +97,27 @@ module.exports = (bot) => {
           if (data === "myProfile") {
             return bot.sendMessage(
               chatID,
-              `✨ *Profil*\n` +
-                `──────────────\n` +
-                `💬 *Ism:* ${firstName}\n` +
-                `🆔 *ID:* \`${userId}\`\n` +
-                `👤 *Username:* @${query.from.username || "yo'q"}\n` +
-                `──────────────\n` +
-                `👥 *Jami do'stlar:* ${user.totalInvited}\n` +
-                `✅ *Botni faollashtirdi:* ${user.totalInvited}\n` +
-                `💰 *Balans:* ${user.balance.toFixed(2)} ⭐️\n\n_🚀 Dostlarni taklif qilish uchun pastdagi tugmani bosing va dostlaringizni taklif qiling!_ `,
+              `✨ <b>Profil</b>
+──────────────
+💬 <b>Ism:</b> ${firstName}
+🆔 <code>${userId}</code>
+👤 <b>Username:</b> ${query.from.username ? "@" + query.from.username : "yo'q"}
+──────────────
+👥 <b>Jami do'stlar:</b> ${user.totalInvited || 0}
+✅ <b>Botni faollashtirdi:</b> ${user.totalInvited || 0}
+💰 <b>Balans:</b> ${user.balance.toFixed(2)} ⭐️
+
+🚀 Dostlarni taklif qilish uchun pastdagi tugmani bosing va dostlaringizni taklif qiling!`,
               {
-                parse_mode: "Markdown",
+                parse_mode: "HTML",
                 reply_markup: {
                   inline_keyboard: [
                     [
                       {
                         text: "➕ Taklif qilish",
-                        url: `https://t.me/share/url?url=https://t.me/AkaStarsBot?start=${userId}&text=${encodeURIComponent("🎉 Do'stim, mana bu botda bepul Stars yig'ishing mumkin! Hozir kirib ko'ring! 🎁")}`,
+                        url: `https://t.me/share/url?url=https://t.me/AkaStarsBot?start=${userId}&text=${encodeURIComponent(
+                          "🎉 Do'stim, mana bu botda bepul Stars yig'ishing mumkin! Hozir kirib ko'ring! 🎁",
+                        )}`,
                       },
                     ],
                     [{ text: "⬅️ Orqaga", callback_data: "exit" }],
@@ -164,7 +168,7 @@ module.exports = (bot) => {
               chatID,
               `🌟 Xush kelibsiz, ${firstName}!
 
-Bu yerda siz foydalanuvchilarni taklif qilishingiz va har biri uchun 2 ⭐ (stars)  olishingiz mumkin.
+Bu yerda siz foydalanuvchilarni taklif qilishingiz va har biri uchun ${STARS_PRICE} ⭐ (stars)  olishingiz mumkin.
 
 🚀 Bu qanday ishlaydi?
 «⭐️ Yulduz ishlash» tugmasini bosing, havolangizni nusxalang va uni do'stlaringizga yuboring. Mukofotga ega bo'ling!
@@ -214,20 +218,34 @@ Bu yerda siz foydalanuvchilarni taklif qilishingiz va har biri uchun 2 ⭐ (star
           );
         }
 
-        if (user.totalInvited < 5) {
+        if (user.totalInvited < 15) {
+          const kerakli = 15;
+          const qoldi = kerakli - user.totalInvited;
+
+          const toliq = "🟦".repeat(Math.min(user.totalInvited, kerakli));
+          const bosh = "⬜️".repeat(Math.max(0, qoldi));
+
           return bot.sendMessage(
             chatID,
-            "*⚠️ Siz hali 5 do‘stni taklif qilmagansiz!*\n\n🎁 Do‘stlaringizni taklif qiling va sovg‘alarni qo‘lga kiriting!",
+            `🛑 *Yechib olish imkoniyati cheklangan!*\n\n` +
+              `Mablag'ni yechish uchun kamida **${kerakli} ta** do'stingizni taklif qilishingiz zarur!\n\n` +
+              `📊 **Sizning holatingiz:**\n` +
+              `┃ ${toliq}${bosh}\n` +
+              `┃\n` +
+              `┣ 👤 *Taklif qilindi:* \`${user.totalInvited}\` ta\n` +
+              `┗ ⏳ *Yana kerak:* \`${qoldi}\` ta\n\n` +
+              `🚀 _Pastdagi tugma orqali havolangizni do'stlaringizga yuboring!_`,
             {
               parse_mode: "Markdown",
               reply_markup: {
                 inline_keyboard: [
                   [
                     {
-                      text: "➕ Taklif qilish",
-                      url: `https://t.me/share/url?url=https://t.me/AkaStarsBot?start=${userId}&text=${encodeURIComponent("🎉 Do'stim, mana bu botda bepul Stars yig'ishing mumkin! Hozir kirib ko'ring! 🎁")}`,
+                      text: "➕ Do'stlarni taklif qilish",
+                      url: `https://t.me/share/url?url=https://t.me/AkaStarsBot?start=${userId}&text=${encodeURIComponent("🎉 Do'stim, mana bu botda bepul Stars yig'ishing mumkin ekan! Hozir kirib ko'r! 🎁")}`,
                     },
                   ],
+                  [{ text: "⬅️ Orqaga", callback_data: "exit" }],
                 ],
               },
             },
@@ -244,7 +262,11 @@ Bu yerda siz foydalanuvchilarni taklif qilishingiz va har biri uchun 2 ⭐ (star
 
         await bot.sendMessage(
           process.env.ADMIN_ID || 907402803,
-          `🧾 <b>Yangi buyurtma!</b>\n\n👤 User: <a href="tg://user?id=${userId}">${firstName}</a> (${userId})\n🎁 Sovg‘a: ${giftIcon}\n💰 Narxi: ${price} ⭐\n🆔 Order ID: \`${order.orderId}\``,
+          `🧾 <b>Yangi buyurtma!</b>\n\n
+👤 <a href="tg://user?id=${userId}">${firstName}</a>
+🎁 Sovg‘a: ${giftIcon}
+💰 Narxi: ${price} ⭐
+🆔 Order ID: <code>${order.orderId}</code>`,
           {
             parse_mode: "HTML",
             reply_markup: {
