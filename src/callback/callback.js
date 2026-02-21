@@ -116,7 +116,7 @@ module.exports = (bot) => {
                       {
                         text: "➕ Taklif qilish",
                         url: `https://t.me/share/url?url=https://t.me/AkaStarsBot?start=${userId}&text=${encodeURIComponent(
-                          "🎉 Do'stim, mana bu botda bepul Stars yig'ishing mumkin! Hozir kirib ko'ring! 🎁",
+                          "🎉 Bu bot orqalik bepul telegram gift olishingizn mumkun ekan. Sinab ko'ring! 🎁",
                         )}`,
                       },
                     ],
@@ -134,14 +134,20 @@ module.exports = (bot) => {
                 .limit(10);
 
               if (topUsers.length > 0) {
-                let text = `🏆 **Top 10 taklif qiluvchilar:**\n\n`;
-
+                let text = `🏆 *Top 10 taklif qiluvchilar:*\n\n`;
                 topUsers.forEach((u, index) => {
                   if (!u.totalInvited || u.totalInvited === 0) return;
+
                   const name = u.firstName
                     ? u.firstName.replace(/[<>]/g, "")
                     : "Foydalanuvchi";
-                  text += `*${index + 1}.* ${name} — **${u.totalInvited}** ta do'st 👤\n`;
+
+                  let prefix = `${index + 1}.`; // default raqam
+                  if (index === 0) prefix = "🥇";
+                  else if (index === 1) prefix = "🥈";
+                  else if (index === 2) prefix = "🥉";
+
+                  text += `*${prefix}* ${name} — **${u.totalInvited}** ta\n`;
                 });
 
                 return bot.sendMessage(chatID, text, {
@@ -209,7 +215,7 @@ Bu yerda siz foydalanuvchilarni taklif qilishingiz va har biri uchun ${STARS_PRI
                   [
                     {
                       text: "➕ Taklif qilish",
-                      url: `https://t.me/share/url?url=https://t.me/AkaStarsBot?start=${userId}&text=${encodeURIComponent("🎉 Do'stim, mana bu botda bepul Stars yig'ishing mumkin! Hozir kirib ko'ring! 🎁")}`,
+                      url: `https://t.me/share/url?url=https://t.me/AkaStarsBot?start=${userId}&text=${encodeURIComponent("\n🎉 Bu bot orqalik bepul telegram gift olishingizn mumkun ekan. Sinab ko'ring! 🎁")}`,
                     },
                   ],
                 ],
@@ -218,8 +224,8 @@ Bu yerda siz foydalanuvchilarni taklif qilishingiz va har biri uchun ${STARS_PRI
           );
         }
 
-        if (user.totalInvited < 15) {
-          const kerakli = 15;
+        if (user.totalInvited < 10) {
+          const kerakli = 10;
           const qoldi = kerakli - user.totalInvited;
 
           const toliq = "🟦".repeat(Math.min(user.totalInvited, kerakli));
@@ -242,7 +248,7 @@ Bu yerda siz foydalanuvchilarni taklif qilishingiz va har biri uchun ${STARS_PRI
                   [
                     {
                       text: "➕ Do'stlarni taklif qilish",
-                      url: `https://t.me/share/url?url=https://t.me/AkaStarsBot?start=${userId}&text=${encodeURIComponent("🎉 Do'stim, mana bu botda bepul Stars yig'ishing mumkin ekan! Hozir kirib ko'r! 🎁")}`,
+                      url: `https://t.me/share/url?url=https://t.me/AkaStarsBot?start=${userId}&text=${encodeURIComponent("🎉 Bu bot orqalik bepul telegram gift olishingizn mumkun ekan. Sinab ko'ring! 🎁")}`,
                     },
                   ],
                   [{ text: "⬅️ Orqaga", callback_data: "exit" }],
