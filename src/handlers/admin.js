@@ -1,5 +1,5 @@
 const BotModel = require("../../beckend/Bot");
-const User = require("../../beckend/User");
+const { getUserModel } = require("../../beckend/User");
 const Kanal = require("../../beckend/Kanal");
 const Order = require("../../beckend/Order");
 const kb = require("./keyboard");
@@ -26,7 +26,8 @@ module.exports = (bot, context, botManager) => {
       return;
     }
 
-    const targetUsers = await User.find({ botId: targetBotId });
+    const TargetUser = getUserModel(targetBotId);
+    const targetUsers = await TargetUser.find({});
     let successCount = 0;
 
     for (const user of targetUsers) {
@@ -55,9 +56,8 @@ module.exports = (bot, context, botManager) => {
     let total = 0;
 
     for (const runtime of botManager.getAllRuntimes()) {
-      const targetUsers = await User.find({
-        botId: String(runtime.botDoc._id),
-      });
+      const TargetUser = getUserModel(String(runtime.botDoc._id));
+      const targetUsers = await TargetUser.find({});
       for (const user of targetUsers) {
         try {
           await runtime.bot.copyMessage(
@@ -98,6 +98,7 @@ module.exports = (bot, context, botManager) => {
   bot.on("message", async (msg) => {
     const chatId = msg.chat.id;
     const text = msg.text;
+    const User = getUserModel(context.botId);
 
     if (!text || !isOwner(msg.from.id)) {
       return;
@@ -106,7 +107,7 @@ module.exports = (bot, context, botManager) => {
     const session = getSession(context.botId, chatId);
 
     if (text === "📊 Statistika") {
-      const userCount = await User.countDocuments({ botId: context.botId });
+      const userCount = await User.countDocuments({});
       const orderCount = await Order.countDocuments({ botId: context.botId });
       const channelCount = await Kanal.countDocuments({ botId: context.botId });
       const managedBotCount = context.isPrimary
@@ -453,9 +454,8 @@ module.exports = (bot, context, botManager) => {
         return;
       }
 
-      const totalUsers = await User.countDocuments({
-        botId: String(managedBot._id),
-      });
+      const ManagedUser = getUserModel(String(managedBot._id));
+      const totalUsers = await ManagedUser.countDocuments({});
 
       // Egasining ismini chiroyli bosiladigan havola qilish:
       const creatorName = managedBot.ownerUsername

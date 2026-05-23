@@ -5,7 +5,6 @@ require("dotenv").config({
 const express = require("express");
 const botManager = require("./runtime/botManager");
 const connectDatabase = require("../beckend/db");
-const User = require("../beckend/User");
 const Kanal = require("../beckend/Kanal");
 const Order = require("../beckend/Order");
 const BotModel = require("../beckend/Bot");
@@ -25,7 +24,6 @@ app.listen(PORT, () => {
   try {
     await connectDatabase();
     await Promise.all([
-      User.syncIndexes(),
       Kanal.syncIndexes(),
       Order.syncIndexes(),
       BotModel.syncIndexes(),

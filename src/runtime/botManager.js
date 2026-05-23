@@ -1,6 +1,7 @@
 const TelegramBot = require("node-telegram-bot-api");
 
 const BotModel = require("../../beckend/Bot");
+const { syncUserIndexes } = require("../../beckend/User");
 const registerStartHandlers = require("../handlers/start");
 const registerCallbackHandlers = require("../callback/callback");
 const registerAdminHandlers = require("../handlers/admin");
@@ -47,6 +48,7 @@ async function launchBot(botDoc) {
   botDoc.username = me.username;
   botDoc.title = me.first_name || botDoc.title;
   await botDoc.save();
+  await syncUserIndexes(botId);
 
   await attachHandlers(bot, botDoc);
 

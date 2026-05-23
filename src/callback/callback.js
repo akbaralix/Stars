@@ -1,11 +1,13 @@
 const { v4: uuidv4 } = require("uuid");
 
 const kb = require("../handlers/keyboard");
-const User = require("../../beckend/User");
+const { getUserModel } = require("../../beckend/User");
 const Order = require("../../beckend/Order");
 const Kanal = require("../../beckend/Kanal");
 
 module.exports = (bot, context, botManager) => {
+  const User = getUserModel(context.botId);
+
   function currentStarsPrice() {
     return (
       Number(botManager.getRuntime(context.botId)?.botDoc?.starsPrice) ||
@@ -76,10 +78,7 @@ module.exports = (bot, context, botManager) => {
         return;
       }
 
-      let user = await User.findOne({
-        botId: context.botId,
-        telegramId: userId,
-      });
+      let user = await User.findOne({ telegramId: userId });
       if (!user) {
         user = await User.create({
           botId: context.botId,
@@ -153,7 +152,7 @@ Do'stlaringizga yuboring va Stars ⭐ yig'ishni boshlang!`,
 
       if (data === "topReferrals") {
         await bot.deleteMessage(chatId, messageId).catch(() => {});
-        const topUsers = await User.find({ botId: context.botId })
+        const topUsers = await User.find({})
           .sort({ totalInvited: -1 })
           .limit(10);
 
@@ -235,9 +234,12 @@ Do'stlaringizga yuboring va Stars ⭐ yig'ishni boshlang!`,
           `🧾 <b>Yangi buyurtma keldi</b>
 
 🤖 Bot: @${context.username}
-👤 User: ${firstName}
+
+👤 User: <a href="tg://user?id=${userId}">${firstName}</a>${query.from.username ? ` | Username: @${query.from.username}` : ""}
 🎁 Gift: ${giftIcon}
 💸 Narx: ${price}
+
+🆔 User ID: <code>${userId}</code>
 🆔 Order ID: <code>${order.orderId}</code>`,
           {
             parse_mode: "HTML",

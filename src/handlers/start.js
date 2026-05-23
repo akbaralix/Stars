@@ -1,12 +1,13 @@
 const path = require("path");
 
 const kb = require("./keyboard");
-const User = require("../../beckend/User");
+const { getUserModel } = require("../../beckend/User");
 const Kanal = require("../../beckend/Kanal");
 const { getSession, setSession, clearSession } = require("../runtime/sessionStore");
 
 module.exports = (bot, context, botManager) => {
   const photoPath = path.join(__dirname, "../../public/Stars.png");
+  const User = getUserModel(context.botId);
 
   async function sendPrettyMessage(chatId, text, options = {}) {
     return bot.sendMessage(chatId, text, {
@@ -48,10 +49,7 @@ module.exports = (bot, context, botManager) => {
   }
 
   async function getOrCreateUser(fromUser, referrerId) {
-    let user = await User.findOne({
-      botId: context.botId,
-      telegramId: fromUser.id,
-    });
+    let user = await User.findOne({ telegramId: fromUser.id });
 
     if (!user) {
       user = await User.create({
@@ -87,7 +85,6 @@ module.exports = (bot, context, botManager) => {
     }
 
     const referrer = await User.findOne({
-      botId: context.botId,
       telegramId: user.invitedBy,
     });
 
