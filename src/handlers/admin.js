@@ -276,14 +276,22 @@ module.exports = (bot, context, botManager) => {
         step: "waiting_for_stars_price",
         targetBotId: context.botId,
       });
+
       await bot.sendMessage(
         chatId,
-        "💸 Yangi Stars narxini raqam ko'rinishida yuboring.",
+        "💸 Yangi Stars narxini raqam ko'rinishida yuboring.\n\n<i>Har bir referral orqali taklif qilingan foydalanuvchi uchun siz belgilagan narx amal qiladi‼️</i>",
+        {
+          parse_mode: "HTML",
+        },
       );
       return;
     }
     if (text === "🤖 Bot") {
-      await bot.sendMessage(chatId, kb.mainMenu());
+      await bot.sendMessage(
+        chatId,
+        "✨ <b>Bot boshqaruv markazi</b>\n\nQuyidagi bo'limlardan birini tanlang va ishlashni davom ettiring.",
+        { parse_mode: "HTML", ...kb.mainMenu() },
+      );
     }
 
     if (text === "⭐ Pro sotib olish") {
@@ -741,8 +749,9 @@ module.exports = (bot, context, botManager) => {
 
     await bot.sendMessage(
       msg.chat.id,
-      "👑 Admin menyusi tayyor. Kerakli bo'limni tanlang:",
+      "👑 <b>Admin boshqaruv paneli</b>\n\nBarcha muhim sozlamalar shu yerda. Kerakli bo'limni tanlang va botingizni qulay boshqaring.",
       {
+        parse_mode: "HTML",
         ...kb.mainMenu(),
         ...kb.adminKeyboard({
           isSuperAdmin: context.isPrimary,
