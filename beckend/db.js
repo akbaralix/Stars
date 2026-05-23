@@ -2,9 +2,10 @@ const mongoose = require("mongoose");
 
 const DB_URI = process.env.DATABASE;
 
-mongoose
-  .connect(DB_URI)
-  .then(() => console.log("MongoDB-ga muvaffaqiyatli ulanildi! ✅"))
-  .catch((err) => console.error("DB ulanishda xatolik:", err));
+async function connectDatabase() {
+  await mongoose.connect(DB_URI);
+  console.log("MongoDB-ga muvaffaqiyatli ulanildi!");
+  return mongoose;
+}
 
-module.exports = mongoose;
+module.exports = connectDatabase;

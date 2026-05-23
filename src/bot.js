@@ -3,26 +3,47 @@ require("dotenv").config({
 });
 
 const express = require("express");
-const TelegramBot = require("node-telegram-bot-api");
-
-const BOT_TOKEN = process.env.BOT_TOKEN;
-const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+const botManager = require("./runtime/botManager");
+const connectDatabase = require("../beckend/db");
+const User = require("../beckend/User");
+const Kanal = require("../beckend/Kanal");
+const Order = require("../beckend/Order");
+const BotModel = require("../beckend/Bot");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get("/", (req, res) => {
-  res.send("🤖 AkaStarsBot ishga tushgan va ishlayapti!");
+  res.send("Stars bot tizimi ishga tushgan va ishlayapti.");
 });
 
 app.listen(PORT, () => {
-  console.log(`🌐 Express server ishlayapti: http://localhost:${PORT}`);
+  console.log(`Express server ishlayapti: http://localhost:${PORT}`);
 });
 
-require("../beckend/db");
+(async () => {
+  try {
+    await connectDatabase();
+    await Promise.all([
+      User.syncIndexes(),
+      Kanal.syncIndexes(),
+      Order.syncIndexes(),
+      BotModel.syncIndexes(),
+    ]);
 
-require("./handlers/start")(bot);
-require("./callback/callback")(bot);
-require("./handlers/admin")(bot);
+    const primaryDoc = await botManager.ensurePrimaryBot(
+      process.env.BOT_TOKEN,
+      process.env.ADMIN_ID,
+      process.env.STARS_PRICE,
+    );
 
-console.log("🤖 Telegram Bot ishga tushdi");
+    await botManager.launchBot(primaryDoc);
+    await botManager.launchStoredBots(primaryDoc._id);
+
+    const runtime = botManager.getRuntime(String(primaryDoc._id));
+    const me = await runtime.bot.getMe();
+    console.log(`Telegram bot ishga tushdi: @${me.username}`);
+  } catch (error) {
+    console.error("Botlarni ishga tushirishda xato:", error);
+  }
+})();

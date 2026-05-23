@@ -1,153 +1,261 @@
 const path = require("path");
+
 const kb = require("./keyboard");
 const User = require("../../beckend/User");
 const Kanal = require("../../beckend/Kanal");
+const { getSession, setSession, clearSession } = require("../runtime/sessionStore");
 
-const ADMIN_ID = Number(process.env.ADMIN_ID);
-module.exports = (bot) => {
-  const handleStartLogic = async (chatId, fromUser, referrerId) => {
-    const userId = fromUser.id;
-    const firstName = fromUser.first_name;
-    const username = fromUser.username;
-    const STARS_PRICE = Number(process.env.STARS_PRICE) || 0; // Son ko'rinishiga o'tkazildi
+module.exports = (bot, context, botManager) => {
+  const photoPath = path.join(__dirname, "../../public/Stars.png");
 
-    try {
-      // 🔐 ADMIN — darhol menyu (TEZLIK UCHUN)
-      if (userId === ADMIN_ID) {
-        return bot.sendMessage(chatId, "Salom admin, menyudan tanlang:", {
-          ...kb.adminKeyboard,
-          ...kb.mainMenyu,
-        });
-      }
+  async function sendPrettyMessage(chatId, text, options = {}) {
+    return bot.sendMessage(chatId, text, {
+      parse_mode: options.parse_mode || "HTML",
+      ...options,
+    });
+  }
 
-      // 1. Kanallarni tekshirish (TEZ VARIANT)
-      const kanallar = await Kanal.find({});
-      let azaBolmaganKanallar = [];
+  async function ensureSubscriptions(userId, referrerId) {
+    const channels = await Kanal.find({ botId: context.botId });
+    const missingChannels = [];
 
-      const checks = kanallar.map((kanal) =>
-        bot
-          .getChatMember(kanal.kanalId, userId)
-          .then((res) => ({ kanal, res }))
-          .catch(() => null),
-      );
-
-      const results = await Promise.all(checks);
-
-      for (const item of results) {
-        if (!item) continue;
-
-        const { kanal, res } = item;
-
-        if (res.status === "left" || res.status === "kicked") {
-          azaBolmaganKanallar.push([
+    for (const channel of channels) {
+      try {
+        const member = await bot.getChatMember(channel.kanalId, userId);
+        if (member.status === "left" || member.status === "kicked") {
+          missingChannels.push([
             {
-              text: kanal.kanalNomi,
-              url: `https://t.me/${kanal.kanalURL.replace("@", "")}`,
+              text: `📢 ${channel.kanalNomi}`,
+              url: `https://t.me/${channel.kanalURL.replace("@", "")}`,
             },
           ]);
         }
+      } catch (error) {
+        console.log(`Kanal tekshirib bo'lmadi ${channel.kanalURL}:`, error.message);
       }
-
-      // 2. Agar hali a'zo bo'lmagan bo'lsa - TO'XTATISH
-      if (azaBolmaganKanallar.length > 0) {
-        azaBolmaganKanallar.push([
-          {
-            text: "🔄 Tekshirish",
-            callback_data: `check_sub_${referrerId || "none"}`,
-          },
-        ]);
-
-        return bot.sendMessage(
-          chatId,
-          `👋 Salom ${firstName}!\n\nBotdan foydalanish uchun qolgan kanallarga ham obuna bo'ling:`,
-          { reply_markup: { inline_keyboard: azaBolmaganKanallar } },
-        );
-      }
-
-      // 3. --- AGAR HAMMA KANALGA A'ZO BO'LGAN BO'LSA ---
-      let user = await User.findOne({ telegramId: userId });
-
-      // Foydalanuvchi bazada yo'q bo'lsa, yangi yaratamiz
-      if (!user) {
-        user = new User({
-          telegramId: userId,
-          firstName: firstName,
-          username: username,
-          invitedBy: referrerId && referrerId != userId ? referrerId : null,
-          isSubscribed: false, // Hali mukofot berilmagan holat
-        });
-        await user.save();
-      }
-
-      // 🎁 FAQAT BIR MARTA (isSubscribed false bo'lgandagina) BALL BERISH
-      if (user.isSubscribed === false) {
-        user.isSubscribed = true; // Ball berildi deb belgilaymiz
-
-        if (!user.invitedBy && referrerId && referrerId != userId) {
-          user.invitedBy = referrerId;
-        }
-
-        await user.save();
-
-        // TAKLIF QILGAN ODAMGA BALL BERISH
-        if (user.invitedBy) {
-          const referrer = await User.findOne({ telegramId: user.invitedBy });
-
-          if (referrer) {
-            referrer.balance += STARS_PRICE;
-            referrer.totalInvited += 1;
-            await referrer.save();
-
-            bot
-              .sendMessage(
-                user.invitedBy,
-                `🌟 Tabriklaymiz! **${firstName}** botni to'liq faollashtirdi.\n\n*Hisobingizga:* + ${STARS_PRICE} ⭐ qo'shildi.`,
-                { parse_mode: "Markdown" },
-              )
-              .catch(() => {});
-          }
-        }
-      }
-
-      // 4. Asosiy start xabari
-      const photoPath = path.join(__dirname, "../../public/Stars.png");
-
-      await bot.sendPhoto(chatId, photoPath, {
-        caption: `<b>👋 Salom <a href="tg://user?id=${userId}">${firstName}</a>!</b>
-
-✨ Botga xush kelibsiz!
-Bu yerda siz do'stlaringizni taklif qilib, STARS ishlashingiz mumkin. 🌟
-
-📌 Qanday boshlashni xohlaysiz?
-Boshlash uchun pastdagi menyudan tanlang! 🚀
-
-<i>💡 Eslatma: Do'stlaringizni ko'proq taklif qilsangiz, bonus STARS kutmoqda! 🎁</i>`,
-        parse_mode: "HTML",
-        ...kb.mainMenyu,
-      });
-    } catch (err) {
-      console.error("Xato:", err);
     }
-  };
 
-  // /start buyrug'i
+    if (missingChannels.length > 0) {
+      missingChannels.push([
+        {
+          text: "✅ Tekshirish",
+          callback_data: `check_sub_${referrerId || "none"}`,
+        },
+      ]);
+    }
+
+    return missingChannels;
+  }
+
+  async function getOrCreateUser(fromUser, referrerId) {
+    let user = await User.findOne({
+      botId: context.botId,
+      telegramId: fromUser.id,
+    });
+
+    if (!user) {
+      user = await User.create({
+        botId: context.botId,
+        telegramId: fromUser.id,
+        firstName: fromUser.first_name,
+        username: fromUser.username,
+        invitedBy: referrerId && Number(referrerId) !== fromUser.id ? Number(referrerId) : null,
+        isSubscribed: false,
+      });
+    } else {
+      user.firstName = fromUser.first_name;
+      user.username = fromUser.username;
+      await user.save();
+    }
+
+    return user;
+  }
+
+  async function applyReferralReward(user, fromUser, referrerId) {
+    if (user.isSubscribed) {
+      return;
+    }
+
+    user.isSubscribed = true;
+    if (!user.invitedBy && referrerId && Number(referrerId) !== fromUser.id) {
+      user.invitedBy = Number(referrerId);
+    }
+    await user.save();
+
+    if (!user.invitedBy) {
+      return;
+    }
+
+    const referrer = await User.findOne({
+      botId: context.botId,
+      telegramId: user.invitedBy,
+    });
+
+    if (!referrer) {
+      return;
+    }
+
+    const runtime = botManager.getRuntime(context.botId);
+    const currentStarsPrice = Number(runtime?.botDoc?.starsPrice) || Number(context.starsPrice) || 0;
+
+    referrer.balance += currentStarsPrice;
+    referrer.totalInvited += 1;
+    await referrer.save();
+
+    await bot
+      .sendMessage(
+        user.invitedBy,
+        `🎉 Ajoyib yangilik!\n\n${fromUser.first_name} sizning havolangiz orqali botni to'liq faollashtirdi.\n\n💸 Balansingizga <b>+${currentStarsPrice} Stars</b> qo'shildi.`,
+        { parse_mode: "HTML" },
+      )
+      .catch(() => {});
+  }
+
+  async function sendWelcome(chatId, fromUser) {
+    await bot.sendPhoto(chatId, photoPath, {
+      caption: `<b>🌟 Salom, <a href="tg://user?id=${fromUser.id}">${fromUser.first_name}</a>!</b>
+
+<b>Stars olamiga xush kelibsiz!</b> ✨
+
+Bu bot orqali siz:
+• do'stlaringizni taklif qilasiz 👥
+• Stars yig'asiz 💫
+• sovg'alarga almashtirasiz 🎁
+
+<i>Pastdagi menyudan birini tanlang va hoziroq boshlang.</i>`,
+      parse_mode: "HTML",
+      ...kb.mainMenu(),
+    });
+  }
+
+  async function handleStartLogic(chatId, fromUser, referrerId) {
+    const isOwner = Number(fromUser.id) === Number(context.ownerId);
+
+    if (isOwner) {
+      await sendPrettyMessage(
+        chatId,
+        `<b>👑 Admin panelga xush kelibsiz!</b>
+
+Bu yerda siz botingizni boshqarishingiz, foydalanuvchilar bilan ishlashingiz va sozlamalarni o'zgartirishingiz mumkin.`,
+        {
+        ...kb.mainMenu(),
+        ...kb.adminKeyboard({
+          isSuperAdmin: context.isPrimary,
+        }),
+        },
+      );
+      return;
+    }
+
+    const missingChannels = await ensureSubscriptions(fromUser.id, referrerId);
+    if (missingChannels.length > 0) {
+      await sendPrettyMessage(
+        chatId,
+        `<b>🔐 Botdan foydalanish uchun kichik qadam qoldi</b>
+
+Salom, <b>${fromUser.first_name}</b>!  
+Davom etish uchun quyidagi kanallarga obuna bo'lib, so'ng <b>Tekshirish</b> tugmasini bosing.`,
+        { reply_markup: { inline_keyboard: missingChannels } },
+      );
+      return;
+    }
+
+    const user = await getOrCreateUser(fromUser, referrerId);
+    await applyReferralReward(user, fromUser, referrerId);
+    await sendWelcome(chatId, fromUser);
+  }
+
   bot.onText(/\/start\s?(.+)?/, async (msg, match) => {
-    const referrerId = match[1] || null;
-    await handleStartLogic(msg.chat.id, msg.from, referrerId);
+    try {
+      await handleStartLogic(msg.chat.id, msg.from, match[1] || null);
+    } catch (error) {
+      console.error("Start xatoligi:", error);
+    }
   });
 
-  // "Tekshirish" tugmasi
-  bot.on("callback_query", async (query) => {
-    if (query.data.startsWith("check_sub")) {
-      const chatId = query.message.chat.id;
-
-      await bot.answerCallbackQuery(query.id).catch(() => {});
-
-      const refData = query.data.split("_")[2];
-      const referrerId = refData === "none" || !refData ? null : refData;
-
-      await bot.deleteMessage(chatId, query.message.message_id).catch(() => {});
-      await handleStartLogic(chatId, query.from, referrerId);
+  bot.onText(/\/yaratish/, async (msg) => {
+    if (!context.isPrimary) {
+      return;
     }
+
+    setSession(context.botId, msg.chat.id, { step: "waiting_for_new_bot_token" });
+    await sendPrettyMessage(
+      msg.chat.id,
+      `<b>🚀 Yangi bot yaratish ustasi</b>
+
+Siz hozir o'zingiz uchun alohida <b>Stars ishlovchi bot</b> yaratishingiz mumkin.
+
+<b>Keyingi qadam:</b> menga bot tokenini yuboring.`,
+    );
+  });
+
+  bot.on("message", async (msg) => {
+    if (!context.isPrimary || !msg.text) {
+      return;
+    }
+
+    const session = getSession(context.botId, msg.chat.id);
+    if (!session || session.step !== "waiting_for_new_bot_token" || msg.text.startsWith("/")) {
+      return;
+    }
+
+    const token = msg.text.trim();
+
+    try {
+      const result = await botManager.createAndLaunchBot({
+        token,
+        owner: msg.from,
+        starsPrice: Number(botManager.getRuntime(context.botId)?.botDoc?.starsPrice)
+          || Number(context.starsPrice)
+          || 0,
+      });
+
+      clearSession(context.botId, msg.chat.id);
+
+      if (result.exists) {
+        await bot.sendMessage(
+          msg.chat.id,
+          `⚠️ Bu token allaqachon ulangan.\n\nUlangan bot: @${result.botDoc.username}`,
+        );
+        return;
+      }
+
+      if (result.invalid) {
+        await bot.sendMessage(
+          msg.chat.id,
+          "❌ Token noto'g'ri yoki botga ulanib bo'lmadi.\n\nIltimos, tokenni qayta tekshirib yana yuboring.",
+        );
+        return;
+      }
+
+      await sendPrettyMessage(
+        msg.chat.id,
+        `<b>🎉 Tabriklaymiz!</b>
+
+Yangi bot muvaffaqiyatli ishga tushdi: <b>@${result.botDoc.username}</b>
+
+Endi shu botga kirib, admin menyusi orqali uni boshqarishingiz mumkin.`,
+      );
+    } catch (error) {
+      clearSession(context.botId, msg.chat.id);
+      console.error("Bot yaratishda xato:", error);
+      await bot.sendMessage(
+        msg.chat.id,
+        "⚠️ Bot yaratishda xato yuz berdi.\n\nTokenni tekshirib yana urinib ko'ring.",
+      );
+    }
+  });
+
+  bot.on("callback_query", async (query) => {
+    if (!query.data.startsWith("check_sub_")) {
+      return;
+    }
+
+    const refData = query.data.replace("check_sub_", "");
+    const referrerId = refData === "none" ? null : refData;
+
+    await bot.answerCallbackQuery(query.id).catch(() => {});
+    await bot.deleteMessage(query.message.chat.id, query.message.message_id).catch(() => {});
+    await handleStartLogic(query.message.chat.id, query.from, referrerId);
   });
 };

@@ -1,74 +1,147 @@
-module.exports = {
-  mainMenyu: {
+function mainMenu() {
+  return {
     reply_markup: {
       inline_keyboard: [
         [
-          { text: "🌟 Balans", callback_data: "balance" },
-          { text: "⭐ Yulduz ishlash", callback_data: "invite" },
+          { text: "💰 Balansim", callback_data: "balance" },
+          { text: "✨ Stars ishlash", callback_data: "invite" },
         ],
         [
           { text: "👤 Profilim", callback_data: "myProfile" },
           { text: "🏆 Top referallar", callback_data: "topReferrals" },
         ],
-        [{ text: "📤 Yechib olish", callback_data: "withdraw" }],
+        [{ text: "🎁 Yechib olish", callback_data: "withdraw" }],
       ],
     },
-  },
-  mnyu: {
-    reply_markup: {
-      inline_keyboard: [
-        [
-          { text: "🌟 Balans", callback_data: "balance" },
-          { text: "⭐ Yulduz ishlash", callback_data: "invite" },
-        ],
-        [
-          { text: "👤 Profilim", callback_data: "myProfile" },
-          { text: "🏆 Top referallar", callback_data: "topReferrals" },
-        ],
-        [{ text: "📤 Yechib olish", callback_data: "withdraw" }],
-      ],
-    },
-  },
-  ortga: {
+  };
+}
+
+function backMenu() {
+  return {
     reply_markup: {
       inline_keyboard: [[{ text: "⬅️ Orqaga", callback_data: "exit" }]],
     },
-  },
-  sovgalarRoyihati: {
+  };
+}
+
+function giftMenu() {
+  return {
     reply_markup: {
       inline_keyboard: [
         [
-          { text: "15 ⭐ (🐻)", callback_data: "gift_15_bear" },
-          { text: "15 ⭐ (💝)", callback_data: "gift_15_heart" },
+          { text: "🐻 15 ⭐", callback_data: "gift_15_bear" },
+          { text: "💖 15 ⭐", callback_data: "gift_15_heart" },
         ],
         [
-          { text: "25 ⭐ (🌹)", callback_data: "gift_25_rose" },
-          { text: "25 ⭐ (🎁)", callback_data: "gift_25_box" },
+          { text: "🌹 25 ⭐", callback_data: "gift_25_rose" },
+          { text: "🎁 25 ⭐", callback_data: "gift_25_box" },
         ],
         [
-          { text: "50 ⭐ (🍾)", callback_data: "gift_50_champ" },
-          { text: "50 ⭐ (💐)", callback_data: "gift_50_flowers" },
+          { text: "🍾 50 ⭐", callback_data: "gift_50_champ" },
+          { text: "💐 50 ⭐", callback_data: "gift_50_flowers" },
         ],
         [
-          { text: "50 ⭐ (🎄)", callback_data: "gift_50_tree" },
-          { text: "50 ⭐ (🎂)", callback_data: "gift_50_cake" },
+          { text: "🎄 50 ⭐", callback_data: "gift_50_tree" },
+          { text: "🎂 50 ⭐", callback_data: "gift_50_cake" },
         ],
         [
-          { text: "100 ⭐ (🏆)", callback_data: "gift_100_cup" },
-          { text: "100 ⭐ (💍)", callback_data: "gift_100_ring" },
+          { text: "🏆 100 ⭐", callback_data: "gift_100_cup" },
+          { text: "💍 100 ⭐", callback_data: "gift_100_ring" },
         ],
-        [{ text: "100 ⭐ (💎)", callback_data: "gift_100_diamond" }],
+        [{ text: "💎 100 ⭐", callback_data: "gift_100_diamond" }],
         [{ text: "⬅️ Orqaga", callback_data: "exit" }],
       ],
     },
-  },
-  adminKeyboard: {
+  };
+}
+
+function adminKeyboard({ isSuperAdmin }) {
+  const keyboard = [
+    [{ text: "📊 Statistika" }, { text: "📣 Xabar yuborish" }],
+    [{ text: "➕ Kanal qo'shish" }, { text: "➖ Kanal uzish" }],
+    [{ text: "💫 Stars narxini o'zgartirish" }],
+  ];
+
+  if (isSuperAdmin) {
+    keyboard.push([
+      { text: "🤖 Botlar boshqaruvi" },
+      { text: "📡 Barcha botlarga xabar" },
+    ]);
+  }
+
+  return {
     reply_markup: {
-      keyboard: [
-        [{ text: "📊 Statistika" }, { text: "📤 Xabar yuborish" }],
-        [{ text: "➕ Kanal qo'shish" }, { text: "➖ Kanal uzish" }],
-      ],
+      keyboard,
       resize_keyboard: true,
     },
-  },
+  };
+}
+
+function removeChannelButtons(channels) {
+  return {
+    reply_markup: {
+      inline_keyboard: channels.map((channel) => [
+        {
+          text: `🗑 ${channel.kanalNomi}`,
+          callback_data: `remove_channel_${channel._id}`,
+        },
+      ]),
+    },
+  };
+}
+
+function managedBotsButtons(bots, action) {
+  return {
+    reply_markup: {
+      inline_keyboard: bots.map((item) => [
+        {
+          text: `🤖 @${item.username} • ${item.title || "bot"}`,
+          callback_data: `${action}_${item._id}`,
+        },
+      ]),
+    },
+  };
+}
+
+function managementActions(botId) {
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: "➕ Kanal qo'shish",
+            callback_data: `manage_add_channel_${botId}`,
+          },
+        ],
+        [
+          {
+            text: "➖ Kanal uzish",
+            callback_data: `manage_remove_channel_${botId}`,
+          },
+        ],
+        [
+          {
+            text: "📣 Xabar yuborish",
+            callback_data: `manage_broadcast_${botId}`,
+          },
+        ],
+        [
+          {
+            text: "💫 Stars narxini o'zgartirish",
+            callback_data: `manage_price_${botId}`,
+          },
+        ],
+      ],
+    },
+  };
+}
+
+module.exports = {
+  adminKeyboard,
+  backMenu,
+  giftMenu,
+  mainMenu,
+  managedBotsButtons,
+  managementActions,
+  removeChannelButtons,
 };

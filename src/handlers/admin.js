@@ -1,272 +1,397 @@
+const BotModel = require("../../beckend/Bot");
 const User = require("../../beckend/User");
 const Kanal = require("../../beckend/Kanal");
 const Order = require("../../beckend/Order");
-const callback = require("../callback/callback");
-const adminState = {};
-const ADMIN_ID = process.env.ADMIN_ID;
+const kb = require("./keyboard");
+const { getSession, setSession, clearSession } = require("../runtime/sessionStore");
 
-module.exports = async (bot) => {
-  // Xabarni hammaga tarqatish funksiyasi
-  const sendBroadcast = async (adminId) => {
-    const state = adminState[adminId];
-    if (!state) return;
+module.exports = (bot, context, botManager) => {
+  function isOwner(userId) {
+    return Number(userId) === Number(context.ownerId);
+  }
 
-    const allUsers = await User.find({});
-    let count = 0;
+  async function sendBotBroadcast(targetBotId, adminId, sourceMessageId, keyboard) {
+    const runtime = botManager.getRuntime(targetBotId);
+    if (!runtime) {
+      await bot.sendMessage(adminId, "Tanlangan bot ishlamayapti.");
+      return;
+    }
 
-    await bot.sendMessage(adminId, "🚀 Tarqatish boshlandi...");
+    const targetUsers = await User.find({ botId: targetBotId });
+    let successCount = 0;
 
-    for (const user of allUsers) {
+    for (const user of targetUsers) {
       try {
-        await bot.copyMessage(user.telegramId, adminId, state.messageId, {
-          reply_markup: state.keyboard || {},
+        await runtime.bot.copyMessage(user.telegramId, adminId, sourceMessageId, {
+          reply_markup: keyboard || undefined,
         });
-        count++;
-      } catch (err) {
-        console.log(`${user.telegramId} ga yuborilmadi: ${err.message}`);
+        successCount += 1;
+      } catch (error) {
+        console.log(`Broadcast yuborilmadi ${user.telegramId}:`, error.message);
       }
     }
 
+    await bot.sendMessage(adminId, `Yuborish yakunlandi: ${successCount} ta foydalanuvchi.`);
+  }
+
+  async function sendNetworkBroadcast(adminId, sourceMessageId, keyboard) {
+    let total = 0;
+
+    for (const runtime of botManager.getAllRuntimes()) {
+      const targetUsers = await User.find({ botId: String(runtime.botDoc._id) });
+      for (const user of targetUsers) {
+        try {
+          await runtime.bot.copyMessage(user.telegramId, adminId, sourceMessageId, {
+            reply_markup: keyboard || undefined,
+          });
+          total += 1;
+        } catch (error) {
+          console.log(`Tarmoq broadcast yuborilmadi ${user.telegramId}:`, error.message);
+        }
+      }
+    }
+
+    await bot.sendMessage(adminId, `Barcha botlarga yuborish tugadi: ${total} ta jo'natma.`);
+  }
+
+  async function promptForChannel(chatId, botId) {
+    setSession(context.botId, chatId, { step: "waiting_for_channel_user", targetBotId: botId });
     await bot.sendMessage(
-      adminId,
-      `✅ Yakunlandi: ${count} ta foydalanuvchiga yetkazildi.`,
+      chatId,
+      "Ulamoqchi bo'lgan kanal userini yuboring (@kanal_nomi). Bot o'sha kanalda admin bo'lishi kerak.",
     );
-    delete adminState[adminId];
-  };
+  }
 
   bot.on("message", async (msg) => {
-    const chatID = msg.chat.id;
+    const chatId = msg.chat.id;
     const text = msg.text;
 
-    if (!ADMIN_ID.includes(chatID)) return;
+    if (!text || !isOwner(msg.from.id)) {
+      return;
+    }
 
-    // --- STATISTIKA ---
+    const session = getSession(context.botId, chatId);
+
     if (text === "📊 Statistika") {
-      const uCount = await User.countDocuments();
-      const oCount = await Order.countDocuments();
-      const kCount = await Kanal.countDocuments();
+      const userCount = await User.countDocuments({ botId: context.botId });
+      const orderCount = await Order.countDocuments({ botId: context.botId });
+      const channelCount = await Kanal.countDocuments({ botId: context.botId });
+      const managedBotCount = context.isPrimary
+        ? await BotModel.countDocuments({ isPrimary: false })
+        : await BotModel.countDocuments({ ownerId: context.ownerId, isPrimary: false });
 
-      return bot.sendMessage(
-        chatID,
-        `📊 *AkaStarsBot Statistikasi*\n\n` +
-          `👥 Foydalanuvchilar: *${uCount}*\n` +
-          `📂 Buyurtmalar: *${oCount}*\n` +
-          `📢 Kanallar: *${kCount}*\n\n` +
-          `✨ Botning faoliyati va foydalanuvchi o‘sishini kuzatib boring!`,
-        { parse_mode: "Markdown" },
+      await bot.sendMessage(
+        chatId,
+        `📊 <b>${context.username}</b> statistikasi
+
+👥 Foydalanuvchilar: <b>${userCount}</b>
+🧾 Buyurtmalar: <b>${orderCount}</b>
+📢 Kanallar: <b>${channelCount}</b>
+🤖 Qo'shilgan botlar: <b>${managedBotCount}</b>`,
+        { parse_mode: "HTML" },
       );
+      return;
     }
 
-    // --- XABAR YUBORISH (ADS) ---
-    if (text === "📤 Xabar yuborish") {
-      adminState[chatID] = { step: "waiting_for_content" };
-      return bot.sendMessage(
-        chatID,
-
-        "✍️ *Diqqat!* \n\n" +
-          "Endi barcha foydalanuvchilarga yuboriladigan xabarni yozing. 📩\n" +
-          "Siz matn, rasm, video yoki boshqa fayllarni yuborishingiz mumkin.",
-        {
-          parse_mode: "Markdown",
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: "❌ Bekor qilish", callback_data: "cancsendall" }],
-            ],
-          },
-        },
-      );
+    if (text === "📣 Xabar yuborish") {
+      setSession(context.botId, chatId, {
+        step: "waiting_for_broadcast_content",
+        targetBotId: context.botId,
+      });
+      await bot.sendMessage(chatId, "📨 Yubormoqchi bo'lgan xabaringizni yuboring.");
+      return;
     }
 
-    if (adminState[chatID]?.step === "waiting_for_content") {
-      adminState[chatID].messageId = msg.message_id;
-      adminState[chatID].step = "waiting_for_button_choice";
+    if (text === "📡 Barcha botlarga xabar" && context.isPrimary) {
+      setSession(context.botId, chatId, { step: "waiting_for_network_broadcast_content" });
+      await bot.sendMessage(chatId, "🌐 Barcha botlar foydalanuvchilariga yuboriladigan xabarni yuboring.");
+      return;
+    }
 
-      return bot.sendMessage(chatID, "🔗 Xabarga linkli tugma qo'shilsinmi?", {
+    if (text === "➕ Kanal qo'shish") {
+      await promptForChannel(chatId, context.botId);
+      return;
+    }
+
+    if (text === "➖ Kanal uzish") {
+      const channels = await Kanal.find({ botId: context.botId });
+      if (channels.length === 0) {
+        await bot.sendMessage(chatId, "📭 Bu botga hali kanal ulanmagan.");
+        return;
+      }
+
+      await bot.sendMessage(chatId, "🗂 Uzmoqchi bo'lgan kanalni tanlang.", kb.removeChannelButtons(channels));
+      return;
+    }
+
+    if (text === "💫 Stars narxini o'zgartirish") {
+      setSession(context.botId, chatId, {
+        step: "waiting_for_stars_price",
+        targetBotId: context.botId,
+      });
+      await bot.sendMessage(chatId, "💸 Yangi Stars narxini raqam ko'rinishida yuboring.");
+      return;
+    }
+
+    if (text === "🤖 Botlar boshqaruvi" && context.isPrimary) {
+      const bots = await BotModel.find({ isPrimary: false }).sort({ createdAt: -1 });
+      if (bots.length === 0) {
+        await bot.sendMessage(chatId, "🤖 Hali qo'shimcha botlar ulanmagan.");
+        return;
+      }
+
+      await bot.sendMessage(chatId, "🛠 Boshqarmoqchi bo'lgan botni tanlang.", kb.managedBotsButtons(bots, "manage_bot"));
+      return;
+    }
+
+    if (session?.step === "waiting_for_broadcast_content") {
+      setSession(context.botId, chatId, {
+        step: "waiting_for_broadcast_button_choice",
+        targetBotId: session.targetBotId,
+        messageId: msg.message_id,
+      });
+      await bot.sendMessage(chatId, "🔘 Xabarga tugma ham qo'shilsinmi?", {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: "✅ Ha", callback_data: "add_button" },
-              { text: "❌ Yo'q", callback_data: "no_button" },
+              { text: "✅ Ha", callback_data: "broadcast_add_button" },
+              { text: "❌ Yo'q", callback_data: "broadcast_no_button" },
             ],
           ],
         },
       });
+      return;
     }
 
-    if (adminState[chatID]?.step === "waiting_for_link") {
-      if (!text || !text.includes("-")) {
-        return bot.sendMessage(
-          chatID,
-          "⚠️ Noto'g'ri format. Namuna: \n`Kanalga o'tish - https://t.me/kanal`",
-          { parse_mode: "Markdown" },
-        );
-      }
-      const [btnText, ...linkParts] = text.split("-");
-      const btnLink = linkParts.join("-").trim();
-      adminState[chatID].keyboard = {
-        inline_keyboard: [[{ text: btnText.trim(), url: btnLink }]],
-      };
-      return await sendBroadcast(chatID);
-    }
-
-    // --- KANAL QO'SHISH ---
-    if (text === "➕ Kanal qo'shish") {
-      // SHU YERDA HOLATNI BELGILASH KERAK:
-      adminState[chatID] = { step: "waiting_for_channel_user" };
-      return bot.sendMessage(
-        chatID,
-        "*Ulamoqchi bo'lgan kanal userini kiriting (@kanal_nomi):*\n\n_ESLATMA: botni kanalga admin qiling!_",
-        {
-          parse_mode: "Markdown",
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: "❌ Bekor qilish", callback_data: "cancel_action" }],
+    if (session?.step === "waiting_for_network_broadcast_content") {
+      setSession(context.botId, chatId, {
+        step: "waiting_for_network_broadcast_button_choice",
+        messageId: msg.message_id,
+      });
+      await bot.sendMessage(chatId, "🔘 Xabarga tugma ham qo'shilsinmi?", {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "✅ Ha", callback_data: "network_add_button" },
+              { text: "❌ Yo'q", callback_data: "network_no_button" },
             ],
-          },
+          ],
         },
-      );
+      });
+      return;
     }
 
-    if (text === "➖ Kanal uzish") {
-      const allChannels = await Kanal.find({});
-      if (allChannels.length === 0) {
-        return bot.sendMessage(chatID, "Ulangan kanallar yo'q!");
+    if (session?.step === "waiting_for_broadcast_link") {
+      if (!text.includes("-")) {
+        await bot.sendMessage(chatId, "⚠️ Format shunday bo'lsin:\nTugma nomi - https://link");
+        return;
       }
 
-      // Har kanal uchun bitta tugma, har biri alohida qator
-      const buttons = allChannels.map((kanal) => [
-        {
-          text: kanal.kanalNomi,
-          callback_data: `remove_kanal_${kanal.kanalId}`,
-        },
-      ]);
-
-      await bot.sendMessage(
-        chatID,
-        "📢 *O'chirmoqchi bo'lgan kanalingizni tanlang:* \n\n" +
-          "Quyidagi ro'yxatdan kanalni tanlab, uni o‘chirishingiz mumkin. ❌",
-        {
-          parse_mode: "Markdown",
-          reply_markup: { inline_keyboard: buttons },
-        },
+      const [buttonText, ...linkParts] = text.split("-");
+      await sendBotBroadcast(
+        session.targetBotId,
+        chatId,
+        session.messageId,
+        { inline_keyboard: [[{ text: buttonText.trim(), url: linkParts.join("-").trim() }]] },
       );
-
-      // Stepni belgilash
-      adminState[chatID] = { step: "waiting_for_channel_removal" };
+      clearSession(context.botId, chatId);
+      return;
     }
 
-    // Callback query orqali kanal o‘chirish
-    bot.on("callback_query", async (query) => {
-      const chatID = query.message.chat.id;
-      const data = query.data;
-
-      // Agar admin kanal o‘chirish holatida bo‘lsa
-      if (adminState[chatID]?.step === "waiting_for_channel_removal") {
-        if (data.startsWith("remove_kanal_")) {
-          const kanalId = data.replace("remove_kanal_", "");
-          const channel = await Kanal.findOne({ kanalId });
-
-          if (!channel) {
-            await bot.answerCallbackQuery(query.id, {
-              text: "❌ Kanal topilmadi",
-            });
-            return;
-          }
-
-          await channel.deleteOne();
-          await bot.answerCallbackQuery(query.id, {
-            text: `✅ Kanal ${channel.kanalNomi} o‘chirildi`,
-          });
-
-          // Xabarni yangilash / tugmalarni olib tashlash
-          await bot.editMessageReplyMarkup(
-            { inline_keyboard: [] },
-            { chat_id: chatID, message_id: query.message.message_id },
-          );
-
-          delete adminState[chatID];
-        }
+    if (session?.step === "waiting_for_network_broadcast_link") {
+      if (!text.includes("-")) {
+        await bot.sendMessage(chatId, "⚠️ Format shunday bo'lsin:\nTugma nomi - https://link");
+        return;
       }
-    });
 
-    if (adminState[chatID]?.step === "waiting_for_channel_user") {
+      const [buttonText, ...linkParts] = text.split("-");
+      await sendNetworkBroadcast(chatId, session.messageId, {
+        inline_keyboard: [[{ text: buttonText.trim(), url: linkParts.join("-").trim() }]],
+      });
+      clearSession(context.botId, chatId);
+      return;
+    }
+
+    if (session?.step === "waiting_for_channel_user") {
+      const runtime = botManager.getRuntime(session.targetBotId);
+      if (!runtime) {
+        clearSession(context.botId, chatId);
+        await bot.sendMessage(chatId, "⚠️ Tanlangan bot hozir ishlamayapti.");
+        return;
+      }
+
       const channelUsername = text.startsWith("@") ? text : `@${text}`;
       try {
-        const chatMember = await bot.getChatMember(
-          channelUsername,
-          (await bot.getMe()).id,
-        );
-        if (chatMember.status !== "administrator") {
-          return bot.sendMessage(chatID, "❌ Men bu kanalda admin emasman!");
+        const me = await runtime.bot.getMe();
+        const member = await runtime.bot.getChatMember(channelUsername, me.id);
+        if (member.status !== "administrator") {
+          await bot.sendMessage(chatId, "⚠️ Bot bu kanalda admin emas.");
+          return;
         }
 
-        const chatInfo = await bot.getChat(channelUsername);
-        const exists = await Kanal.findOne({ kanalId: chatInfo.id });
-        if (exists) {
-          delete adminState[chatID];
-          return bot.sendMessage(chatID, "⚠️ Bu kanal allaqachon mavjud.");
-        }
-
-        const newKanal = new Kanal({
-          kanalNomi: chatInfo.title,
-          kanalURL: channelUsername,
-          kanalId: chatInfo.id,
+        const chatInfo = await runtime.bot.getChat(channelUsername);
+        const exists = await Kanal.findOne({
+          botId: session.targetBotId,
+          kanalId: String(chatInfo.id),
         });
 
-        await newKanal.save();
-        delete adminState[chatID];
-        return bot.sendMessage(
-          chatID,
-          `🎉 *Kanal muvaffaqiyatli qo‘shildi!* 🎉\n\n` +
-            `📌 Kanal nomi: **${chatInfo.title}**\n` +
-            `✅ Endi bu kanal bot bilan ishlashga tayyor.`,
-          { parse_mode: "Markdown" },
-        );
+        if (exists) {
+          clearSession(context.botId, chatId);
+          await bot.sendMessage(chatId, "ℹ️ Bu kanal allaqachon ulangan.");
+          return;
+        }
+
+        await Kanal.create({
+          botId: session.targetBotId,
+          ownerId: runtime.botDoc.ownerId,
+          kanalNomi: chatInfo.title,
+          kanalURL: channelUsername,
+          kanalId: String(chatInfo.id),
+        });
+
+        clearSession(context.botId, chatId);
+        await bot.sendMessage(chatId, `🎉 Kanal muvaffaqiyatli ulandi:\n${chatInfo.title}`);
       } catch (error) {
-        return bot.sendMessage(
-          chatID,
-          "❌ Kanal topilmadi yoki bot admin emas.",
-        );
+        await bot.sendMessage(chatId, "❌ Kanal topilmadi yoki bot admin emas.");
       }
+      return;
+    }
+
+    if (session?.step === "waiting_for_stars_price") {
+      const starsPrice = Number(text);
+      if (Number.isNaN(starsPrice) || starsPrice < 0) {
+        await bot.sendMessage(chatId, "⚠️ Faqat musbat raqam yuboring.");
+        return;
+      }
+
+      await botManager.updateStarsPrice(session.targetBotId, starsPrice);
+      clearSession(context.botId, chatId);
+      await bot.sendMessage(chatId, `✅ Stars narxi muvaffaqiyatli yangilandi: ${starsPrice}`);
     }
   });
 
   bot.on("callback_query", async (query) => {
-    const chatID = query.message.chat.id;
+    const chatId = query.message.chat.id;
     const data = query.data;
-    if (!adminState[chatID]) return bot.answerCallbackQuery(query.id);
+    const session = getSession(context.botId, chatId);
 
-    // ... callback_query ichida
-    if (data === "cancel_action") {
-      delete adminState[chatID]; // Holatni tozalaymiz
-      await bot.deleteMessage(chatID, query.message.message_id).catch(() => {});
-      return bot.sendMessage(
-        chatID,
-        "❌ Amallar bekor qilindi va asosiy menyuga qaytdingiz.",
+    if (!isOwner(query.from.id)) {
+      return;
+    }
+
+    if (data.startsWith("remove_channel_")) {
+      const channel = await Kanal.findById(data.replace("remove_channel_", ""));
+
+      if (!channel) {
+        return;
+      }
+
+      if (!context.isPrimary && Number(channel.ownerId) !== Number(context.ownerId)) {
+        return;
+      }
+
+      await Kanal.deleteOne({ _id: channel._id });
+      await bot.answerCallbackQuery(query.id, { text: "Kanal uzildi ✅" });
+      await bot.editMessageReplyMarkup(
+        { inline_keyboard: [] },
+        { chat_id: chatId, message_id: query.message.message_id },
       );
+      return;
     }
 
-    if (data === "cancsendall") {
-      delete adminState[chatID];
-      await bot.deleteMessage(chatID, query.message.message_id).catch(() => {});
-
-      return bot.sendMessage(chatID, "Amaliyot bekor qilindi");
+    if (data === "broadcast_add_button" && session?.step === "waiting_for_broadcast_button_choice") {
+      setSession(context.botId, chatId, { ...session, step: "waiting_for_broadcast_link" });
+      await bot.sendMessage(chatId, "🔗 Quyidagicha yuboring:\nTugma nomi - https://link");
+      await bot.answerCallbackQuery(query.id);
+      return;
     }
 
-    if (data === "add_button") {
-      await bot.deleteMessage(chatID, query.message.message_id).catch(() => {});
-      adminState[chatID].step = "waiting_for_link";
-      bot.sendMessage(
-        chatID,
-        "🔗 Tugma nomi va linkni yuboring:\n`Tugma - https://link.com`",
-        { parse_mode: "Markdown" },
-      );
+    if (data === "broadcast_no_button" && session?.step === "waiting_for_broadcast_button_choice") {
+      await sendBotBroadcast(session.targetBotId, chatId, session.messageId);
+      clearSession(context.botId, chatId);
+      await bot.answerCallbackQuery(query.id);
+      return;
     }
 
-    if (data === "no_button") {
-      await bot.deleteMessage(chatID, query.message.message_id).catch(() => {});
-      await sendBroadcast(chatID);
+    if (data === "network_add_button" && session?.step === "waiting_for_network_broadcast_button_choice") {
+      setSession(context.botId, chatId, { ...session, step: "waiting_for_network_broadcast_link" });
+      await bot.sendMessage(chatId, "🔗 Quyidagicha yuboring:\nTugma nomi - https://link");
+      await bot.answerCallbackQuery(query.id);
+      return;
     }
-    bot.answerCallbackQuery(query.id);
+
+    if (data === "network_no_button" && session?.step === "waiting_for_network_broadcast_button_choice") {
+      await sendNetworkBroadcast(chatId, session.messageId);
+      clearSession(context.botId, chatId);
+      await bot.answerCallbackQuery(query.id);
+      return;
+    }
+
+    if (data.startsWith("manage_bot_") && context.isPrimary) {
+      const botId = data.replace("manage_bot_", "");
+      const managedBot = await BotModel.findById(botId);
+      if (!managedBot) {
+        await bot.answerCallbackQuery(query.id, { text: "Bot topilmadi", show_alert: true });
+        return;
+      }
+
+      await bot.sendMessage(chatId, `🤖 Tanlangan bot: @${managedBot.username}\nKerakli amalni tanlang.`, kb.managementActions(botId));
+      await bot.answerCallbackQuery(query.id);
+      return;
+    }
+
+    if (data.startsWith("manage_add_channel_") && context.isPrimary) {
+      await promptForChannel(chatId, data.replace("manage_add_channel_", ""));
+      await bot.answerCallbackQuery(query.id);
+      return;
+    }
+
+    if (data.startsWith("manage_remove_channel_") && context.isPrimary) {
+      const botId = data.replace("manage_remove_channel_", "");
+      const channels = await Kanal.find({ botId });
+      if (channels.length === 0) {
+        await bot.answerCallbackQuery(query.id, { text: "Kanal yo'q", show_alert: true });
+        return;
+      }
+
+      await bot.sendMessage(chatId, "🗂 Uzmoqchi bo'lgan kanalni tanlang.", kb.removeChannelButtons(channels));
+      await bot.answerCallbackQuery(query.id);
+      return;
+    }
+
+    if (data.startsWith("manage_broadcast_") && context.isPrimary) {
+      setSession(context.botId, chatId, {
+        step: "waiting_for_broadcast_content",
+        targetBotId: data.replace("manage_broadcast_", ""),
+      });
+      await bot.sendMessage(chatId, "📨 Tanlangan bot foydalanuvchilariga yuboriladigan xabarni yuboring.");
+      await bot.answerCallbackQuery(query.id);
+      return;
+    }
+
+    if (data.startsWith("manage_price_") && context.isPrimary) {
+      setSession(context.botId, chatId, {
+        step: "waiting_for_stars_price",
+        targetBotId: data.replace("manage_price_", ""),
+      });
+      await bot.sendMessage(chatId, "💸 Tanlangan bot uchun yangi Stars narxini yuboring.");
+      await bot.answerCallbackQuery(query.id);
+      return;
+    }
+
+    await bot.answerCallbackQuery(query.id).catch(() => {});
+  });
+
+  bot.onText(/\/admin/, async (msg) => {
+    if (!isOwner(msg.from.id)) {
+      return;
+    }
+
+    await bot.sendMessage(msg.chat.id, "👑 Admin menyusi tayyor. Kerakli bo'limni tanlang:", {
+      ...kb.mainMenu(),
+      ...kb.adminKeyboard({
+        isSuperAdmin: context.isPrimary,
+      }),
+    });
   });
 };
