@@ -3,14 +3,23 @@ const User = require("../../beckend/User");
 const Kanal = require("../../beckend/Kanal");
 const Order = require("../../beckend/Order");
 const kb = require("./keyboard");
-const { getSession, setSession, clearSession } = require("../runtime/sessionStore");
+const {
+  getSession,
+  setSession,
+  clearSession,
+} = require("../runtime/sessionStore");
 
 module.exports = (bot, context, botManager) => {
   function isOwner(userId) {
     return Number(userId) === Number(context.ownerId);
   }
 
-  async function sendBotBroadcast(targetBotId, adminId, sourceMessageId, keyboard) {
+  async function sendBotBroadcast(
+    targetBotId,
+    adminId,
+    sourceMessageId,
+    keyboard,
+  ) {
     const runtime = botManager.getRuntime(targetBotId);
     if (!runtime) {
       await bot.sendMessage(adminId, "Tanlangan bot ishlamayapti.");
@@ -22,40 +31,64 @@ module.exports = (bot, context, botManager) => {
 
     for (const user of targetUsers) {
       try {
-        await runtime.bot.copyMessage(user.telegramId, adminId, sourceMessageId, {
-          reply_markup: keyboard || undefined,
-        });
+        await runtime.bot.copyMessage(
+          user.telegramId,
+          adminId,
+          sourceMessageId,
+          {
+            reply_markup: keyboard || undefined,
+          },
+        );
         successCount += 1;
       } catch (error) {
         console.log(`Broadcast yuborilmadi ${user.telegramId}:`, error.message);
       }
     }
 
-    await bot.sendMessage(adminId, `Yuborish yakunlandi: ${successCount} ta foydalanuvchi.`);
+    await bot.sendMessage(
+      adminId,
+      `Yuborish yakunlandi: ${successCount} ta foydalanuvchi.`,
+    );
   }
 
   async function sendNetworkBroadcast(adminId, sourceMessageId, keyboard) {
     let total = 0;
 
     for (const runtime of botManager.getAllRuntimes()) {
-      const targetUsers = await User.find({ botId: String(runtime.botDoc._id) });
+      const targetUsers = await User.find({
+        botId: String(runtime.botDoc._id),
+      });
       for (const user of targetUsers) {
         try {
-          await runtime.bot.copyMessage(user.telegramId, adminId, sourceMessageId, {
-            reply_markup: keyboard || undefined,
-          });
+          await runtime.bot.copyMessage(
+            user.telegramId,
+            adminId,
+            sourceMessageId,
+            {
+              reply_markup: keyboard || undefined,
+            },
+          );
           total += 1;
         } catch (error) {
-          console.log(`Tarmoq broadcast yuborilmadi ${user.telegramId}:`, error.message);
+          console.log(
+            `Tarmoq broadcast yuborilmadi ${user.telegramId}:`,
+            error.message,
+          );
         }
       }
     }
 
-    await bot.sendMessage(adminId, `Barcha botlarga yuborish tugadi: ${total} ta jo'natma.`);
+    await bot.sendMessage(
+      adminId,
+      `Barcha botlarga yuborish tugadi: ${total} ta jo'natma.`,
+    );
   }
 
   async function promptForChannel(chatId, botId) {
-    setSession(context.botId, chatId, { step: "waiting_for_channel_user", targetBotId: botId });
+    setSession(context.botId, chatId, {
+      step: "waiting_for_channel_user",
+      targetBotId: botId,
+    });
     await bot.sendMessage(
       chatId,
       "Ulamoqchi bo'lgan kanal userini yuboring (@kanal_nomi). Bot o'sha kanalda admin bo'lishi kerak.",
@@ -78,7 +111,10 @@ module.exports = (bot, context, botManager) => {
       const channelCount = await Kanal.countDocuments({ botId: context.botId });
       const managedBotCount = context.isPrimary
         ? await BotModel.countDocuments({ isPrimary: false })
-        : await BotModel.countDocuments({ ownerId: context.ownerId, isPrimary: false });
+        : await BotModel.countDocuments({
+            ownerId: context.ownerId,
+            isPrimary: false,
+          });
 
       await bot.sendMessage(
         chatId,
@@ -98,13 +134,21 @@ module.exports = (bot, context, botManager) => {
         step: "waiting_for_broadcast_content",
         targetBotId: context.botId,
       });
-      await bot.sendMessage(chatId, "📨 Yubormoqchi bo'lgan xabaringizni yuboring.");
+      await bot.sendMessage(
+        chatId,
+        "📨 Yubormoqchi bo'lgan xabaringizni yuboring.",
+      );
       return;
     }
 
     if (text === "📡 Barcha botlarga xabar" && context.isPrimary) {
-      setSession(context.botId, chatId, { step: "waiting_for_network_broadcast_content" });
-      await bot.sendMessage(chatId, "🌐 Barcha botlar foydalanuvchilariga yuboriladigan xabarni yuboring.");
+      setSession(context.botId, chatId, {
+        step: "waiting_for_network_broadcast_content",
+      });
+      await bot.sendMessage(
+        chatId,
+        "🌐 Barcha botlar foydalanuvchilariga yuboriladigan xabarni yuboring.",
+      );
       return;
     }
 
@@ -120,7 +164,11 @@ module.exports = (bot, context, botManager) => {
         return;
       }
 
-      await bot.sendMessage(chatId, "🗂 Uzmoqchi bo'lgan kanalni tanlang.", kb.removeChannelButtons(channels));
+      await bot.sendMessage(
+        chatId,
+        "🗂 Uzmoqchi bo'lgan kanalni tanlang.",
+        kb.removeChannelButtons(channels),
+      );
       return;
     }
 
@@ -129,18 +177,27 @@ module.exports = (bot, context, botManager) => {
         step: "waiting_for_stars_price",
         targetBotId: context.botId,
       });
-      await bot.sendMessage(chatId, "💸 Yangi Stars narxini raqam ko'rinishida yuboring.");
+      await bot.sendMessage(
+        chatId,
+        "💸 Yangi Stars narxini raqam ko'rinishida yuboring.",
+      );
       return;
     }
 
     if (text === "🤖 Botlar boshqaruvi" && context.isPrimary) {
-      const bots = await BotModel.find({ isPrimary: false }).sort({ createdAt: -1 });
+      const bots = await BotModel.find({ isPrimary: false }).sort({
+        createdAt: -1,
+      });
       if (bots.length === 0) {
         await bot.sendMessage(chatId, "🤖 Hali qo'shimcha botlar ulanmagan.");
         return;
       }
 
-      await bot.sendMessage(chatId, "🛠 Boshqarmoqchi bo'lgan botni tanlang.", kb.managedBotsButtons(bots, "manage_bot"));
+      await bot.sendMessage(
+        chatId,
+        "🛠 Boshqarmoqchi bo'lgan botni tanlang.",
+        kb.managedBotsButtons(bots, "manage_bot"),
+      );
       return;
     }
 
@@ -183,30 +240,37 @@ module.exports = (bot, context, botManager) => {
 
     if (session?.step === "waiting_for_broadcast_link") {
       if (!text.includes("-")) {
-        await bot.sendMessage(chatId, "⚠️ Format shunday bo'lsin:\nTugma nomi - https://link");
+        await bot.sendMessage(
+          chatId,
+          "⚠️ Format shunday bo'lsin:\nTugma nomi - https://link",
+        );
         return;
       }
 
       const [buttonText, ...linkParts] = text.split("-");
-      await sendBotBroadcast(
-        session.targetBotId,
-        chatId,
-        session.messageId,
-        { inline_keyboard: [[{ text: buttonText.trim(), url: linkParts.join("-").trim() }]] },
-      );
+      await sendBotBroadcast(session.targetBotId, chatId, session.messageId, {
+        inline_keyboard: [
+          [{ text: buttonText.trim(), url: linkParts.join("-").trim() }],
+        ],
+      });
       clearSession(context.botId, chatId);
       return;
     }
 
     if (session?.step === "waiting_for_network_broadcast_link") {
       if (!text.includes("-")) {
-        await bot.sendMessage(chatId, "⚠️ Format shunday bo'lsin:\nTugma nomi - https://link");
+        await bot.sendMessage(
+          chatId,
+          "⚠️ Format shunday bo'lsin:\nTugma nomi - https://link",
+        );
         return;
       }
 
       const [buttonText, ...linkParts] = text.split("-");
       await sendNetworkBroadcast(chatId, session.messageId, {
-        inline_keyboard: [[{ text: buttonText.trim(), url: linkParts.join("-").trim() }]],
+        inline_keyboard: [
+          [{ text: buttonText.trim(), url: linkParts.join("-").trim() }],
+        ],
       });
       clearSession(context.botId, chatId);
       return;
@@ -250,9 +314,15 @@ module.exports = (bot, context, botManager) => {
         });
 
         clearSession(context.botId, chatId);
-        await bot.sendMessage(chatId, `🎉 Kanal muvaffaqiyatli ulandi:\n${chatInfo.title}`);
+        await bot.sendMessage(
+          chatId,
+          `🎉 Kanal muvaffaqiyatli ulandi:\n${chatInfo.title}`,
+        );
       } catch (error) {
-        await bot.sendMessage(chatId, "❌ Kanal topilmadi yoki bot admin emas.");
+        await bot.sendMessage(
+          chatId,
+          "❌ Kanal topilmadi yoki bot admin emas.",
+        );
       }
       return;
     }
@@ -266,7 +336,10 @@ module.exports = (bot, context, botManager) => {
 
       await botManager.updateStarsPrice(session.targetBotId, starsPrice);
       clearSession(context.botId, chatId);
-      await bot.sendMessage(chatId, `✅ Stars narxi muvaffaqiyatli yangilandi: ${starsPrice}`);
+      await bot.sendMessage(
+        chatId,
+        `✅ Stars narxi muvaffaqiyatli yangilandi: ${starsPrice}`,
+      );
     }
   });
 
@@ -286,7 +359,10 @@ module.exports = (bot, context, botManager) => {
         return;
       }
 
-      if (!context.isPrimary && Number(channel.ownerId) !== Number(context.ownerId)) {
+      if (
+        !context.isPrimary &&
+        Number(channel.ownerId) !== Number(context.ownerId)
+      ) {
         return;
       }
 
@@ -299,43 +375,104 @@ module.exports = (bot, context, botManager) => {
       return;
     }
 
-    if (data === "broadcast_add_button" && session?.step === "waiting_for_broadcast_button_choice") {
-      setSession(context.botId, chatId, { ...session, step: "waiting_for_broadcast_link" });
-      await bot.sendMessage(chatId, "🔗 Quyidagicha yuboring:\nTugma nomi - https://link");
+    if (
+      data === "broadcast_add_button" &&
+      session?.step === "waiting_for_broadcast_button_choice"
+    ) {
+      setSession(context.botId, chatId, {
+        ...session,
+        step: "waiting_for_broadcast_link",
+      });
+      await bot.sendMessage(
+        chatId,
+        "🔗 Quyidagicha yuboring:\nTugma nomi - https://link",
+      );
       await bot.answerCallbackQuery(query.id);
       return;
     }
 
-    if (data === "broadcast_no_button" && session?.step === "waiting_for_broadcast_button_choice") {
+    if (
+      data === "broadcast_no_button" &&
+      session?.step === "waiting_for_broadcast_button_choice"
+    ) {
       await sendBotBroadcast(session.targetBotId, chatId, session.messageId);
       clearSession(context.botId, chatId);
       await bot.answerCallbackQuery(query.id);
       return;
     }
 
-    if (data === "network_add_button" && session?.step === "waiting_for_network_broadcast_button_choice") {
-      setSession(context.botId, chatId, { ...session, step: "waiting_for_network_broadcast_link" });
-      await bot.sendMessage(chatId, "🔗 Quyidagicha yuboring:\nTugma nomi - https://link");
+    if (
+      data === "network_add_button" &&
+      session?.step === "waiting_for_network_broadcast_button_choice"
+    ) {
+      setSession(context.botId, chatId, {
+        ...session,
+        step: "waiting_for_network_broadcast_link",
+      });
+      await bot.sendMessage(
+        chatId,
+        "🔗 Quyidagicha yuboring:\nTugma nomi - https://link",
+      );
       await bot.answerCallbackQuery(query.id);
       return;
     }
 
-    if (data === "network_no_button" && session?.step === "waiting_for_network_broadcast_button_choice") {
+    if (
+      data === "network_no_button" &&
+      session?.step === "waiting_for_network_broadcast_button_choice"
+    ) {
       await sendNetworkBroadcast(chatId, session.messageId);
       clearSession(context.botId, chatId);
       await bot.answerCallbackQuery(query.id);
       return;
     }
 
+    // --- MANAGE BOT SELECTION (CRASH FIXED HERE) ---
     if (data.startsWith("manage_bot_") && context.isPrimary) {
       const botId = data.replace("manage_bot_", "");
-      const managedBot = await BotModel.findById(botId);
+
+      // Boshqariladigan botni bazadan qidiramiz
+      let managedBot;
+      try {
+        // Agar botId Telegram ID (raqam) bo'lsa va Mongoose xato bersa, findOne orqali qidiradi
+        managedBot = await BotModel.findOne({
+          $or: [{ _id: botId }, { telegramId: botId }],
+        });
+      } catch (err) {
+        // Agar Mongoose baribir ObjectId xatosi bersa, MongoDB to'g'ridan-to'g'ri kolleksiyasidan qidiramiz
+        managedBot = await BotModel.collection.findOne({
+          telegramId: Number(botId),
+        });
+      }
+
       if (!managedBot) {
-        await bot.answerCallbackQuery(query.id, { text: "Bot topilmadi", show_alert: true });
+        await bot.answerCallbackQuery(query.id, {
+          text: "Bot topilmadi",
+          show_alert: true,
+        });
         return;
       }
 
-      await bot.sendMessage(chatId, `🤖 Tanlangan bot: @${managedBot.username}\nKerakli amalni tanlang.`, kb.managementActions(botId));
+      const totalUsers = await User.countDocuments({
+        botId: String(managedBot._id),
+      });
+
+      // Egasining ismini chiroyli bosiladigan havola qilish:
+      const creatorName = managedBot.ownerUsername
+        ? `@${managedBot.ownerUsername}`
+        : `Foydalanuvchi [ID: ${managedBot.ownerId}]`;
+
+      await bot.sendMessage(
+        chatId,
+        `<b>🤖 Tanlangan bot: @${managedBot.username}</b>\n\n` +
+          `Bot foydalanuvchilari soni: <b>${totalUsers}</b>\n` +
+          `Bot yaratuvchisi: <a href="tg://user?id=${managedBot.ownerId}">${creatorName}</a>\n\n` +
+          `Kerakli amalni tanlang.`,
+        {
+          parse_mode: "HTML",
+          ...kb.managementActions(String(managedBot._id)), // Xatolik bermasligi uchun 3-argument ichiga birlashtirildi!
+        },
+      );
       await bot.answerCallbackQuery(query.id);
       return;
     }
@@ -350,11 +487,18 @@ module.exports = (bot, context, botManager) => {
       const botId = data.replace("manage_remove_channel_", "");
       const channels = await Kanal.find({ botId });
       if (channels.length === 0) {
-        await bot.answerCallbackQuery(query.id, { text: "Kanal yo'q", show_alert: true });
+        await bot.answerCallbackQuery(query.id, {
+          text: "Kanal yo'q",
+          show_alert: true,
+        });
         return;
       }
 
-      await bot.sendMessage(chatId, "🗂 Uzmoqchi bo'lgan kanalni tanlang.", kb.removeChannelButtons(channels));
+      await bot.sendMessage(
+        chatId,
+        "🗂 Uzmoqchi bo'lgan kanalni tanlang.",
+        kb.removeChannelButtons(channels),
+      );
       await bot.answerCallbackQuery(query.id);
       return;
     }
@@ -364,7 +508,10 @@ module.exports = (bot, context, botManager) => {
         step: "waiting_for_broadcast_content",
         targetBotId: data.replace("manage_broadcast_", ""),
       });
-      await bot.sendMessage(chatId, "📨 Tanlangan bot foydalanuvchilariga yuboriladigan xabarni yuboring.");
+      await bot.sendMessage(
+        chatId,
+        "📨 Tanlangan bot foydalanuvchilariga yuboriladigan xabarni yuboring.",
+      );
       await bot.answerCallbackQuery(query.id);
       return;
     }
@@ -374,7 +521,10 @@ module.exports = (bot, context, botManager) => {
         step: "waiting_for_stars_price",
         targetBotId: data.replace("manage_price_", ""),
       });
-      await bot.sendMessage(chatId, "💸 Tanlangan bot uchun yangi Stars narxini yuboring.");
+      await bot.sendMessage(
+        chatId,
+        "💸 Tanlangan bot uchun yangi Stars narxini yuboring.",
+      );
       await bot.answerCallbackQuery(query.id);
       return;
     }
@@ -387,11 +537,15 @@ module.exports = (bot, context, botManager) => {
       return;
     }
 
-    await bot.sendMessage(msg.chat.id, "👑 Admin menyusi tayyor. Kerakli bo'limni tanlang:", {
-      ...kb.mainMenu(),
-      ...kb.adminKeyboard({
-        isSuperAdmin: context.isPrimary,
-      }),
-    });
+    await bot.sendMessage(
+      msg.chat.id,
+      "👑 Admin menyusi tayyor. Kerakli bo'limni tanlang:",
+      {
+        ...kb.mainMenu(),
+        ...kb.adminKeyboard({
+          isSuperAdmin: context.isPrimary,
+        }),
+      },
+    );
   });
 };

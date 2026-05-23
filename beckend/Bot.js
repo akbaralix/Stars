@@ -7,7 +7,7 @@ const botSchema = new mongoose.Schema({
   title: { type: String, default: "" },
   ownerId: { type: Number, required: true, index: true },
   ownerUsername: { type: String, default: "" },
-  starsPrice: { type: Number, default: 0 },
+  starsPrice: { type: Number, default: 3 },
   isPrimary: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
 });

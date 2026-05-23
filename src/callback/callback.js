@@ -118,15 +118,35 @@ Do'stlaringizga yuboring va Stars ⭐ yig'ishni boshlang!`,
 
       if (data === "myProfile") {
         await bot.deleteMessage(chatId, messageId).catch(() => {});
-        await bot.sendMessage(
+        return bot.sendMessage(
           chatId,
-          `<b>Profil</b>
-👤 Ism: ${firstName}
-🆔 ID: <code>${userId}</code>
-🔗 Username: ${query.from.username ? `@${query.from.username}` : "yo'q"}
-👥 Takliflar: ${user.totalInvited || 0}
-💎 Balans: ${user.balance.toFixed(2)} ⭐`,
-          { parse_mode: "HTML", ...kb.backMenu() },
+          `✨ <b>Profil</b>
+──────────────
+💬 <b>Ism:</b> ${firstName}
+🆔 <code>${userId}</code>
+👤 <b>Username:</b> ${query.from.username ? "@" + query.from.username : "yo'q"}
+──────────────
+👥 <b>Jami do'stlar:</b> ${user.totalInvited || 0}
+✅ <b>Botni faollashtirdi:</b> ${user.totalInvited || 0}
+💰 <b>Balans:</b> ${user.balance.toFixed(2)} ⭐️
+
+🚀 Dostlarni taklif qilish uchun pastdagi tugmani bosing va dostlaringizni taklif qiling!`,
+          {
+            parse_mode: "HTML",
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {
+                    text: "➕ Taklif qilish",
+                    url: `https://t.me/share/url?url=https://t.me/AkaStarsBot?start=${userId}&text=${encodeURIComponent(
+                      "🎉 Bu bot orqalik bepul telegram gift olishingizn mumkun ekan. Sinab ko'ring! 🎁",
+                    )}`,
+                  },
+                ],
+                [{ text: "⬅️ Orqaga", callback_data: "exit" }],
+              ],
+            },
+          },
         );
         return;
       }
