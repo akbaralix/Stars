@@ -59,7 +59,8 @@ function adminKeyboard({ isSuperAdmin }) {
   const keyboard = [
     [{ text: "📊 Statistika" }, { text: "📣 Xabar yuborish" }],
     [{ text: "➕ Kanal qo'shish" }, { text: "➖ Kanal uzish" }],
-    [{ text: "💫 Stars narxini o'zgartirish" }],
+    [{ text: "💫 Stars narxini o'zgartirish" }, { text: "🤖 Bot" }],
+
     [{ text: "⭐ Pro sotib olish" }],
   ];
 
@@ -130,12 +131,6 @@ function managementActions(botId) {
           {
             text: "💫 Stars narxini o'zgartirish",
             callback_data: `manage_price_${botId}`,
-          },
-        ],
-        [
-          {
-            text: "⭐ Pro holati",
-            callback_data: `manage_pro_${botId}`,
           },
         ],
       ],

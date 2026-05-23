@@ -19,7 +19,10 @@ module.exports = (bot, context, botManager) => {
   }
 
   function isProActive(botDoc) {
-    return Boolean(botDoc?.proExpiresAt && new Date(botDoc.proExpiresAt).getTime() > Date.now());
+    return Boolean(
+      botDoc?.proExpiresAt &&
+      new Date(botDoc.proExpiresAt).getTime() > Date.now(),
+    );
   }
 
   function formatDate(date) {
@@ -53,7 +56,10 @@ module.exports = (bot, context, botManager) => {
     }
 
     const active = isProActive(targetBot);
-    await sendOptionalSticker(chatId, active ? "PRO_ACTIVE_STICKER_ID" : "PRO_OFFER_STICKER_ID");
+    await sendOptionalSticker(
+      chatId,
+      active ? "PRO_ACTIVE_STICKER_ID" : "PRO_OFFER_STICKER_ID",
+    );
 
     const text = active
       ? `✨ <b>Pro obuna faol</b>\n\n🤖 Bot: @${targetBot.username}\n📅 Amal qilish muddati: <b>${formatDate(targetBot.proExpiresAt)}</b>\n\nPro bilan siz 2 tadan ko'p kanal va guruh ulashingiz mumkin.`
@@ -91,7 +97,7 @@ module.exports = (bot, context, botManager) => {
     await bot.sendInvoice(
       chatId,
       "Pro obuna",
-      "1 oylik Pro obuna. 2 tadan ortiq kanal va guruh ulash imkoniyati.",
+      "1 oylik Pro obunani 50 ⭐ Stars evaziga sotib oling va cheksiz imkoniyatlardan foydalaning 🚀",
       `pro:${targetBotId}:${Date.now()}`,
       "",
       "XTR",
@@ -275,6 +281,9 @@ module.exports = (bot, context, botManager) => {
         "💸 Yangi Stars narxini raqam ko'rinishida yuboring.",
       );
       return;
+    }
+    if (text === "🤖 Bot") {
+      await bot.sendMessage(chatId, kb.mainMenu());
     }
 
     if (text === "⭐ Pro sotib olish") {
@@ -648,12 +657,21 @@ module.exports = (bot, context, botManager) => {
       const targetBotId = data.replace("buy_pro_", "");
       const targetBot = await getManagedBot(targetBotId);
       if (!targetBot) {
-        await bot.answerCallbackQuery(query.id, { text: "Bot topilmadi", show_alert: true });
+        await bot.answerCallbackQuery(query.id, {
+          text: "Bot topilmadi",
+          show_alert: true,
+        });
         return;
       }
 
-      if (!context.isPrimary && String(targetBot._id) !== String(context.botId)) {
-        await bot.answerCallbackQuery(query.id, { text: "Ruxsat yo'q", show_alert: true });
+      if (
+        !context.isPrimary &&
+        String(targetBot._id) !== String(context.botId)
+      ) {
+        await bot.answerCallbackQuery(query.id, {
+          text: "Ruxsat yo'q",
+          show_alert: true,
+        });
         return;
       }
 
@@ -674,9 +692,11 @@ module.exports = (bot, context, botManager) => {
 
       await bot.answerPreCheckoutQuery(query.id, true);
     } catch (error) {
-      await bot.answerPreCheckoutQuery(query.id, false, {
-        error_message: "To'lovni tasdiqlashda xato yuz berdi.",
-      }).catch(() => {});
+      await bot
+        .answerPreCheckoutQuery(query.id, false, {
+          error_message: "To'lovni tasdiqlashda xato yuz berdi.",
+        })
+        .catch(() => {});
     }
   });
 

@@ -137,7 +137,7 @@ Do'stlaringizga yuboring va Stars ⭐ yig'ishni boshlang!`,
                 [
                   {
                     text: "➕ Taklif qilish",
-                    url: `https://t.me/share/url?url=https://t.me/AkaStarsBot?start=${userId}&text=${encodeURIComponent(
+                    url: `https://t.me/share/url?url=${encodeURIComponent(botStartLink(userId))}&text=${encodeURIComponent(
                       "🎉 Bu bot orqalik bepul telegram gift olishingizn mumkun ekan. Sinab ko'ring! 🎁",
                     )}`,
                   },
