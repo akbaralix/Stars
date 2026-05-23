@@ -3,7 +3,11 @@ const path = require("path");
 const kb = require("./keyboard");
 const { getUserModel } = require("../../beckend/User");
 const Kanal = require("../../beckend/Kanal");
-const { getSession, setSession, clearSession } = require("../runtime/sessionStore");
+const {
+  getSession,
+  setSession,
+  clearSession,
+} = require("../runtime/sessionStore");
 
 module.exports = (bot, context, botManager) => {
   const photoPath = path.join(__dirname, "../../public/Stars.png");
@@ -32,7 +36,10 @@ module.exports = (bot, context, botManager) => {
           ]);
         }
       } catch (error) {
-        console.log(`Kanal tekshirib bo'lmadi ${channel.kanalURL}:`, error.message);
+        console.log(
+          `Kanal tekshirib bo'lmadi ${channel.kanalURL}:`,
+          error.message,
+        );
       }
     }
 
@@ -57,7 +64,10 @@ module.exports = (bot, context, botManager) => {
         telegramId: fromUser.id,
         firstName: fromUser.first_name,
         username: fromUser.username,
-        invitedBy: referrerId && Number(referrerId) !== fromUser.id ? Number(referrerId) : null,
+        invitedBy:
+          referrerId && Number(referrerId) !== fromUser.id
+            ? Number(referrerId)
+            : null,
         isSubscribed: false,
       });
     } else {
@@ -93,7 +103,8 @@ module.exports = (bot, context, botManager) => {
     }
 
     const runtime = botManager.getRuntime(context.botId);
-    const currentStarsPrice = Number(runtime?.botDoc?.starsPrice) || Number(context.starsPrice) || 0;
+    const currentStarsPrice =
+      Number(runtime?.botDoc?.starsPrice) || Number(context.starsPrice) || 0;
 
     referrer.balance += currentStarsPrice;
     referrer.totalInvited += 1;
@@ -135,10 +146,10 @@ Bu bot orqali siz:
 
 Bu yerda siz botingizni boshqarishingiz, foydalanuvchilar bilan ishlashingiz va sozlamalarni o'zgartirishingiz mumkin.`,
         {
-        ...kb.mainMenu(),
-        ...kb.adminKeyboard({
-          isSuperAdmin: context.isPrimary,
-        }),
+          ...kb.mainMenu(),
+          ...kb.adminKeyboard({
+            isSuperAdmin: context.isPrimary,
+          }),
         },
       );
       return;
@@ -175,7 +186,9 @@ Davom etish uchun quyidagi kanallarga obuna bo'lib, so'ng <b>Tekshirish</b> tugm
       return;
     }
 
-    setSession(context.botId, msg.chat.id, { step: "waiting_for_new_bot_token" });
+    setSession(context.botId, msg.chat.id, {
+      step: "waiting_for_new_bot_token",
+    });
     await sendPrettyMessage(
       msg.chat.id,
       `<b>🚀 Yangi bot yaratish ustasi</b>
@@ -192,7 +205,11 @@ Siz hozir o'zingiz uchun alohida <b>Stars ishlovchi bot</b> yaratishingiz mumkin
     }
 
     const session = getSession(context.botId, msg.chat.id);
-    if (!session || session.step !== "waiting_for_new_bot_token" || msg.text.startsWith("/")) {
+    if (
+      !session ||
+      session.step !== "waiting_for_new_bot_token" ||
+      msg.text.startsWith("/")
+    ) {
       return;
     }
 
@@ -202,9 +219,10 @@ Siz hozir o'zingiz uchun alohida <b>Stars ishlovchi bot</b> yaratishingiz mumkin
       const result = await botManager.createAndLaunchBot({
         token,
         owner: msg.from,
-        starsPrice: Number(botManager.getRuntime(context.botId)?.botDoc?.starsPrice)
-          || Number(context.starsPrice)
-          || 0,
+        starsPrice:
+          Number(botManager.getRuntime(context.botId)?.botDoc?.starsPrice) ||
+          Number(context.starsPrice) ||
+          0,
       });
 
       clearSession(context.botId, msg.chat.id);
@@ -252,7 +270,9 @@ Endi shu botga kirib, admin menyusi orqali uni boshqarishingiz mumkin.`,
     const referrerId = refData === "none" ? null : refData;
 
     await bot.answerCallbackQuery(query.id).catch(() => {});
-    await bot.deleteMessage(query.message.chat.id, query.message.message_id).catch(() => {});
+    await bot
+      .deleteMessage(query.message.chat.id, query.message.message_id)
+      .catch(() => {});
     await handleStartLogic(query.message.chat.id, query.from, referrerId);
   });
 };

@@ -60,6 +60,7 @@ function adminKeyboard({ isSuperAdmin }) {
     [{ text: "📊 Statistika" }, { text: "📣 Xabar yuborish" }],
     [{ text: "➕ Kanal qo'shish" }, { text: "➖ Kanal uzish" }],
     [{ text: "💫 Stars narxini o'zgartirish" }],
+    [{ text: "⭐ Pro sotib olish" }],
   ];
 
   if (isSuperAdmin) {
@@ -131,6 +132,25 @@ function managementActions(botId) {
             callback_data: `manage_price_${botId}`,
           },
         ],
+        [
+          {
+            text: "⭐ Pro holati",
+            callback_data: `manage_pro_${botId}`,
+          },
+        ],
+      ],
+    },
+  };
+}
+
+function proPurchaseButtons(botId, isActive) {
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        isActive
+          ? [{ text: "✨ Pro faol", callback_data: `show_pro_${botId}` }]
+          : [{ text: "⭐ Pro sotib olish", callback_data: `buy_pro_${botId}` }],
+        [{ text: "📋 Pro haqida", callback_data: `show_pro_${botId}` }],
       ],
     },
   };
@@ -143,5 +163,6 @@ module.exports = {
   mainMenu,
   managedBotsButtons,
   managementActions,
+  proPurchaseButtons,
   removeChannelButtons,
 };

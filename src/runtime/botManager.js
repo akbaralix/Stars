@@ -154,6 +154,18 @@ async function updateStarsPrice(botId, starsPrice) {
   return botDoc;
 }
 
+async function updateBotDocument(botId, update) {
+  const botDoc = await BotModel.findByIdAndUpdate(botId, update, { new: true });
+  if (!botDoc) return null;
+
+  const runtime = getRuntime(botId);
+  if (runtime) {
+    runtime.botDoc = botDoc;
+  }
+
+  return botDoc;
+}
+
 module.exports = {
   createAndLaunchBot,
   ensurePrimaryBot,
@@ -161,6 +173,7 @@ module.exports = {
   getRuntime,
   launchBot,
   launchStoredBots,
+  updateBotDocument,
   updateStarsPrice,
   validateToken,
 };

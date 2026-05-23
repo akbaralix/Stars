@@ -12,6 +12,31 @@ const userSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
-userSchema.index({ botId: 1, telegramId: 1 }, { unique: true });
+userSchema.index({ telegramId: 1 }, { unique: true });
 
-module.exports = mongoose.model("User", userSchema);
+function normalizeBotId(botId) {
+  return String(botId || "main").replace(/[^a-zA-Z0-9]/g, "_");
+}
+
+function getUserModel(botId) {
+  const safeBotId = normalizeBotId(botId);
+  const modelName = `User_${safeBotId}`;
+  const collectionName = `users_${safeBotId}`;
+
+  if (mongoose.models[modelName]) {
+    return mongoose.models[modelName];
+  }
+
+  return mongoose.model(modelName, userSchema, collectionName);
+}
+
+async function syncUserIndexes(botId) {
+  const UserModel = getUserModel(botId);
+  await UserModel.syncIndexes();
+  return UserModel;
+}
+
+module.exports = {
+  getUserModel,
+  syncUserIndexes,
+};

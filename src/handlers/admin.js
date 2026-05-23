@@ -10,8 +10,96 @@ const {
 } = require("../runtime/sessionStore");
 
 module.exports = (bot, context, botManager) => {
+  const PRO_CHANNEL_LIMIT = 2;
+  const PRO_PRICE_STARS = 50;
+  const PRO_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+
   function isOwner(userId) {
     return Number(userId) === Number(context.ownerId);
+  }
+
+  function isProActive(botDoc) {
+    return Boolean(botDoc?.proExpiresAt && new Date(botDoc.proExpiresAt).getTime() > Date.now());
+  }
+
+  function formatDate(date) {
+    return new Date(date).toLocaleDateString("uz-UZ");
+  }
+
+  async function sendOptionalSticker(chatId, envKey) {
+    const stickerId = process.env[envKey];
+    if (!stickerId) return;
+    await bot.sendSticker(chatId, stickerId).catch(() => {});
+  }
+
+  async function getManagedBot(botId) {
+    return BotModel.findById(botId);
+  }
+
+  async function showProOffer(chatId, targetBotId) {
+    const targetBot = await getManagedBot(targetBotId);
+    if (!targetBot) {
+      await bot.sendMessage(chatId, "Bot topilmadi.");
+      return;
+    }
+
+    if (targetBot.isPrimary) {
+      await bot.sendMessage(
+        chatId,
+        `👑 <b>Asosiy bot uchun Pro talab qilinmaydi.</b>\n\nBu bot tizimning bosh botidir va kanal/guruh limiti unga qo'llanmaydi.`,
+        { parse_mode: "HTML" },
+      );
+      return;
+    }
+
+    const active = isProActive(targetBot);
+    await sendOptionalSticker(chatId, active ? "PRO_ACTIVE_STICKER_ID" : "PRO_OFFER_STICKER_ID");
+
+    const text = active
+      ? `✨ <b>Pro obuna faol</b>\n\n🤖 Bot: @${targetBot.username}\n📅 Amal qilish muddati: <b>${formatDate(targetBot.proExpiresAt)}</b>\n\nPro bilan siz 2 tadan ko'p kanal va guruh ulashingiz mumkin.`
+      : `⭐ <b>Pro obuna kerak</b>\n\n🤖 Bot: @${targetBot.username}\n🔒 Oddiy rejimda faqat <b>${PRO_CHANNEL_LIMIT} ta</b> kanal yoki guruh ulash mumkin.\n\n✨ <b>Pro afzalliklari:</b>\n• 2 tadan ortiq kanal/guruh ulash\n• Kengroq boshqaruv imkoniyati\n• Faqat <b>${PRO_PRICE_STARS} Stars</b> / 1 oy\n\nPastdagi tugma orqali Pro sotib oling.`;
+
+    await bot.sendMessage(chatId, text, {
+      parse_mode: "HTML",
+      ...kb.proPurchaseButtons(targetBotId, active),
+    });
+  }
+
+  async function enforceProLimit(chatId, targetBotId) {
+    const targetBot = await getManagedBot(targetBotId);
+    if (!targetBot || targetBot.isPrimary) {
+      return false;
+    }
+
+    const currentCount = await Kanal.countDocuments({ botId: targetBotId });
+    if (currentCount < PRO_CHANNEL_LIMIT || isProActive(targetBot)) {
+      return false;
+    }
+
+    await showProOffer(chatId, targetBotId);
+    return true;
+  }
+
+  async function sendProInvoice(chatId, targetBotId) {
+    const targetBot = await getManagedBot(targetBotId);
+    if (!targetBot) {
+      await bot.sendMessage(chatId, "Bot topilmadi.");
+      return;
+    }
+
+    await sendOptionalSticker(chatId, "PRO_OFFER_STICKER_ID");
+    await bot.sendInvoice(
+      chatId,
+      "Pro obuna",
+      "1 oylik Pro obuna. 2 tadan ortiq kanal va guruh ulash imkoniyati.",
+      `pro:${targetBotId}:${Date.now()}`,
+      "",
+      "XTR",
+      [{ label: "Pro 1 oy", amount: PRO_PRICE_STARS }],
+      {
+        start_parameter: `pro_${targetBotId}`,
+      },
+    );
   }
 
   async function sendBotBroadcast(
@@ -154,6 +242,10 @@ module.exports = (bot, context, botManager) => {
     }
 
     if (text === "➕ Kanal qo'shish") {
+      if (await enforceProLimit(chatId, context.botId)) {
+        return;
+      }
+
       await promptForChannel(chatId, context.botId);
       return;
     }
@@ -182,6 +274,11 @@ module.exports = (bot, context, botManager) => {
         chatId,
         "💸 Yangi Stars narxini raqam ko'rinishida yuboring.",
       );
+      return;
+    }
+
+    if (text === "⭐ Pro sotib olish") {
+      await showProOffer(chatId, context.botId);
       return;
     }
 
@@ -478,7 +575,13 @@ module.exports = (bot, context, botManager) => {
     }
 
     if (data.startsWith("manage_add_channel_") && context.isPrimary) {
-      await promptForChannel(chatId, data.replace("manage_add_channel_", ""));
+      const targetBotId = data.replace("manage_add_channel_", "");
+      if (await enforceProLimit(chatId, targetBotId)) {
+        await bot.answerCallbackQuery(query.id);
+        return;
+      }
+
+      await promptForChannel(chatId, targetBotId);
       await bot.answerCallbackQuery(query.id);
       return;
     }
@@ -529,7 +632,86 @@ module.exports = (bot, context, botManager) => {
       return;
     }
 
+    if (data.startsWith("manage_pro_") && context.isPrimary) {
+      await showProOffer(chatId, data.replace("manage_pro_", ""));
+      await bot.answerCallbackQuery(query.id);
+      return;
+    }
+
+    if (data.startsWith("show_pro_")) {
+      await showProOffer(chatId, data.replace("show_pro_", ""));
+      await bot.answerCallbackQuery(query.id);
+      return;
+    }
+
+    if (data.startsWith("buy_pro_")) {
+      const targetBotId = data.replace("buy_pro_", "");
+      const targetBot = await getManagedBot(targetBotId);
+      if (!targetBot) {
+        await bot.answerCallbackQuery(query.id, { text: "Bot topilmadi", show_alert: true });
+        return;
+      }
+
+      if (!context.isPrimary && String(targetBot._id) !== String(context.botId)) {
+        await bot.answerCallbackQuery(query.id, { text: "Ruxsat yo'q", show_alert: true });
+        return;
+      }
+
+      await sendProInvoice(chatId, targetBotId);
+      await bot.answerCallbackQuery(query.id);
+      return;
+    }
+
     await bot.answerCallbackQuery(query.id).catch(() => {});
+  });
+
+  bot.on("pre_checkout_query", async (query) => {
+    try {
+      if (!query.invoice_payload?.startsWith("pro:")) {
+        await bot.answerPreCheckoutQuery(query.id, true);
+        return;
+      }
+
+      await bot.answerPreCheckoutQuery(query.id, true);
+    } catch (error) {
+      await bot.answerPreCheckoutQuery(query.id, false, {
+        error_message: "To'lovni tasdiqlashda xato yuz berdi.",
+      }).catch(() => {});
+    }
+  });
+
+  bot.on("message", async (msg) => {
+    if (!msg.successful_payment || !isOwner(msg.from.id)) {
+      return;
+    }
+
+    const payload = msg.successful_payment.invoice_payload || "";
+    if (!payload.startsWith("pro:")) {
+      return;
+    }
+
+    const [, targetBotId] = payload.split(":");
+    const targetBot = await getManagedBot(targetBotId);
+    if (!targetBot) {
+      return;
+    }
+
+    const fromDate = isProActive(targetBot)
+      ? new Date(targetBot.proExpiresAt)
+      : new Date();
+    const nextExpiry = new Date(fromDate.getTime() + PRO_MONTH_MS);
+
+    await botManager.updateBotDocument(targetBotId, {
+      proPurchasedAt: new Date(),
+      proExpiresAt: nextExpiry,
+    });
+
+    await sendOptionalSticker(msg.chat.id, "PRO_SUCCESS_STICKER_ID");
+    await bot.sendMessage(
+      msg.chat.id,
+      `🎉 <b>Pro muvaffaqiyatli yoqildi!</b>\n\n🤖 Bot: @${targetBot.username}\n⭐ To'lov: <b>${PRO_PRICE_STARS} Stars</b>\n📅 Amal qilish muddati: <b>${formatDate(nextExpiry)}</b>\n\nEndi siz 2 tadan ortiq kanal va guruh ulashingiz mumkin.`,
+      { parse_mode: "HTML" },
+    );
   });
 
   bot.onText(/\/admin/, async (msg) => {
