@@ -191,11 +191,11 @@ Davom etish uchun quyidagi kanallarga obuna bo'lib, so'ng <b>Tekshirish</b> tugm
     });
     await sendPrettyMessage(
       msg.chat.id,
-      `<b>🚀 Yangi bot yaratish ustasi</b>
+      `<b>🚀 Yangi bot yaratish</b>
 
 Siz hozir o'zingiz uchun alohida <b>Stars ishlovchi bot</b> yaratishingiz mumkin.
 
-<b>Keyingi qadam:</b> menga bot tokenini yuboring.`,
+<b>Keyingi qadam:</b> menga @BotFather dan botingizni tokenini yuboring.`,
     );
   });
 

@@ -8,6 +8,8 @@ const connectDatabase = require("../beckend/db");
 const Kanal = require("../beckend/Kanal");
 const Order = require("../beckend/Order");
 const BotModel = require("../beckend/Bot");
+const TopUp = require("../beckend/TopUp");
+const StarsPurchase = require("../beckend/StarsPurchase");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -27,6 +29,8 @@ app.listen(PORT, () => {
       Kanal.syncIndexes(),
       Order.syncIndexes(),
       BotModel.syncIndexes(),
+      TopUp.syncIndexes(),
+      StarsPurchase.syncIndexes(),
     ]);
 
     const primaryDoc = await botManager.ensurePrimaryBot(

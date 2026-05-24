@@ -6,6 +6,8 @@ const userSchema = new mongoose.Schema({
   firstName: String,
   username: String,
   balance: { type: Number, default: 0 },
+  somBalance: { type: Number, default: 0 },
+  totalTopUpSom: { type: Number, default: 0 },
   totalInvited: { type: Number, default: 0 },
   isSubscribed: { type: Boolean, default: false },
   invitedBy: { type: Number, default: null },
