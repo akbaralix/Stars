@@ -10,8 +10,8 @@ const {
   getSession,
   setSession,
   clearSession,
+  getGreeting,
 } = require("../runtime/sessionStore");
-
 module.exports = (bot, context, botManager) => {
   const User = getUserModel(context.botId);
   const CARD_NUMBER = process.env.CARD_NUMBER || "4073420056948478";
@@ -411,7 +411,7 @@ module.exports = (bot, context, botManager) => {
 
       if (data === "exit") {
         await bot.editMessageText(
-          `🌟 Xush kelibsiz, ${escapeHtml(firstName)}!\n\nBu yerda siz do'stlaringizni taklif qilib, Stars ⭐ yig'ib va ularni sovg'alarga almashtirishingiz mumkin.`,
+          `${getGreeting()} ${escapeHtml(firstName)}!\n\nBu yerda siz do'stlaringizni taklif qilib, Stars ⭐ yig'ib va ularni sovg'alarga almashtirishingiz mumkin.`,
           {
             chat_id: chatId,
             message_id: messageId,
