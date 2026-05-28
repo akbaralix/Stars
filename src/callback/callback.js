@@ -46,8 +46,7 @@ module.exports = (bot, context, botManager) => {
 
   function normalizeUsername(input) {
     if (!input) return "";
-    const username = String(input).trim().replace(/^@/, "");
-    return username;
+    return String(input).trim().replace(/^@/, "");
   }
 
   function getStarsPackage(starsAmount) {
@@ -94,13 +93,13 @@ module.exports = (bot, context, botManager) => {
     missingChannels.push([
       { text: "✅ Tekshirish", callback_data: "check_sub_none" },
     ]);
-    await bot
-      .deleteMessage(query.message.chat.id, query.message.message_id)
-      .catch(() => {});
-    await bot.sendMessage(
-      query.message.chat.id,
+    await bot.editMessageText(
       "🔐 Davom etish uchun barcha kanallarga obuna bo'ling va keyin tekshirish tugmasini bosing.",
-      { reply_markup: { inline_keyboard: missingChannels } },
+      {
+        chat_id: query.message.chat.id,
+        message_id: query.message.message_id,
+        reply_markup: { inline_keyboard: missingChannels },
+      },
     );
     return true;
   }
@@ -338,31 +337,37 @@ module.exports = (bot, context, botManager) => {
       }
 
       if (data === "balance") {
-        await bot.deleteMessage(chatId, messageId).catch(() => {});
-        await bot.sendMessage(
-          chatId,
+        await bot.editMessageText(
           `💰 <b>Sizning balansingiz</b>\n\nHozir hisobingizda <b>${user.balance.toFixed(1)} Stars ⭐</b> mavjud.`,
-          { parse_mode: "HTML", ...kb.backMenu() },
+          {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: "HTML",
+            reply_markup: kb.backMenu().reply_markup,
+          },
         );
         return;
       }
 
       if (data === "invite") {
-        await bot.deleteMessage(chatId, messageId).catch(() => {});
-        await bot.sendMessage(
-          chatId,
+        await bot.editMessageText(
           `✨ <b>Stars ishlash juda oson!</b>\n\nHar bir do'stingiz sizning havolangiz orqali botni ishga tushirsa, sizga <b>${currentStarsPrice()} Stars</b> yoziladi.\n\n🔗 <b>Sizning maxsus havolangiz:</b>\n<code>${botStartLink(userId)}</code>\n\nDo'stlaringizga yuboring va Stars ⭐ yig'ishni boshlang!`,
-          { parse_mode: "HTML", ...kb.backMenu() },
+          {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: "HTML",
+            reply_markup: kb.backMenu().reply_markup,
+          },
         );
         return;
       }
 
       if (data === "myProfile") {
-        await bot.deleteMessage(chatId, messageId).catch(() => {});
-        await bot.sendMessage(
-          chatId,
-          `✨ <b>Profil</b>\n──────────────\n💬 <b>Ism:</b> ${escapeHtml(firstName)}\n🆔 <code>${userId}</code>\n👤 <b>Username:</b> ${query.from.username ? `@${escapeHtml(query.from.username)}` : "yo'q"}\n──────────────\n👥 <b>Jami do'stlar:</b> ${user.totalInvited || 0}\n✅ <b>Botni faollashtirdi:</b> ${user.totalInvited || 0}\n💰 <b>Stars balans:</b> ${user.balance.toFixed(2)} ⭐\n <b>Hamyon:</b> ${user.somBalance?.toLocaleString("uz-UZ") || 0} so'm\n💳 <b>Jami to'ldirilgan:</b> ${user.totalTopUpSom?.toLocaleString("uz-UZ") || 0} so'm\n\n🚀 Do'stlaringizni taklif qilib Stars yig'ishni davom ettiring!`,
+        await bot.editMessageText(
+          `✨ <b>Profil</b>\n──────────────\n💬 <b>Ism:</b> ${escapeHtml(firstName)}\n🆔 <code>${userId}</code>\n👤 <b>Username:</b> ${query.from.username ? `@${escapeHtml(query.from.username)}` : "yo'q"}\n──────────────\n👥 <b>Jami do'stlar:</b> ${user.totalInvited || 0}\n✅ <b>Botni faollashtirdi:</b> ${user.totalInvited || 0}\n💰 <b>Stars balans:</b> ${user.balance.toFixed(2)} ⭐\n🪙 <b>Hamyon:</b> ${user.somBalance?.toLocaleString("uz-UZ") || 0} so'm\n💳 <b>Jami to'ldirilgan:</b> ${user.totalTopUpSom?.toLocaleString("uz-UZ") || 0} so'm\n\n🚀 Do'stlaringizni taklif qilib Stars yig'ishni davom ettiring!`,
           {
+            chat_id: chatId,
+            message_id: messageId,
             parse_mode: "HTML",
             reply_markup: {
               inline_keyboard: [
@@ -381,7 +386,6 @@ module.exports = (bot, context, botManager) => {
       }
 
       if (data === "topReferrals") {
-        await bot.deleteMessage(chatId, messageId).catch(() => {});
         const topUsers = await User.find({})
           .sort({ totalInvited: -1 })
           .limit(10);
@@ -392,32 +396,40 @@ module.exports = (bot, context, botManager) => {
               `${index + 1}. ${(item.firstName || "Foydalanuvchi").replace(/[<>]/g, "")} - ${item.totalInvited} ta`,
           );
 
-        await bot.sendMessage(
-          chatId,
-          lines.length
-            ? `🏆 <b>Top referallar</b>\n\n${lines.join("\n")}`
-            : "🌥 Hozircha referallar ro'yxati bo'sh.",
-          { parse_mode: "HTML", ...kb.backMenu() },
-        );
+        const message = lines.length
+          ? `🏆 <b>Top referallar</b>\n\n${lines.join("\n")}`
+          : "🌥 Hozircha referallar ro'yxati bo'sh.";
+
+        await bot.editMessageText(message, {
+          chat_id: chatId,
+          message_id: messageId,
+          parse_mode: "HTML",
+          reply_markup: kb.backMenu().reply_markup,
+        });
         return;
       }
 
       if (data === "exit") {
-        await bot.deleteMessage(chatId, messageId).catch(() => {});
-        await bot.sendMessage(
-          chatId,
+        await bot.editMessageText(
           `🌟 Xush kelibsiz, ${escapeHtml(firstName)}!\n\nBu yerda siz do'stlaringizni taklif qilib, Stars ⭐ yig'ib va ularni sovg'alarga almashtirishingiz mumkin.`,
-          kb.mainMenu(),
+          {
+            chat_id: chatId,
+            message_id: messageId,
+            reply_markup: kb.mainMenu().reply_markup,
+          },
         );
         return;
       }
 
       if (data === "withdraw") {
-        await bot.deleteMessage(chatId, messageId).catch(() => {});
-        await bot.sendMessage(
-          chatId,
+        await bot.editMessageText(
           `🎁 <b>Sovg'alar bo'limi</b>\n\nBalansingiz: <b>${user.balance.toFixed(1)} ⭐</b>\nO'zingizga yoqqan sovg'ani tanlang.`,
-          { parse_mode: "HTML", ...kb.giftMenu() },
+          {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: "HTML",
+            reply_markup: kb.giftMenu().reply_markup,
+          },
         );
         return;
       }
@@ -432,14 +444,14 @@ module.exports = (bot, context, botManager) => {
         }
 
         clearSession(context.botId, chatId);
-        await bot.deleteMessage(chatId, messageId).catch(() => {});
         await sendOptionalSticker(chatId, "BUY_STARS_STICKER_ID");
-        await bot.sendMessage(
-          chatId,
-          `⭐ <b>Stars sotib olish</b>\n\nStarslarni kim uchun xarid qilmoqchisiz?`,
+        await bot.editMessageText(
+          `⭐ <b>Stars sotib olish</b>\n\nStarslarni kim uchun xarid qilmoqchisiz? Menyudan keraklisini tanlang.`,
           {
+            chat_id: chatId,
+            message_id: messageId,
             parse_mode: "HTML",
-            ...kb.buyStarsTargetMenu(),
+            reply_markup: kb.buyStarsTargetMenu().reply_markup,
           },
         );
         return;
@@ -460,12 +472,13 @@ module.exports = (bot, context, botManager) => {
           recipientUsername: normalizeUsername(query.from.username),
         });
 
-        await bot.sendMessage(
-          chatId,
+        await bot.editMessageText(
           `🙋 <b>O'zingiz uchun tanlandi</b>\n\nQabul qiluvchi: <b>@${escapeHtml(query.from.username)}</b>\n\nEndi kerakli paketni tanlang.`,
           {
+            chat_id: chatId,
+            message_id: messageId,
             parse_mode: "HTML",
-            ...kb.starsPackageMenu("purchase_pkg"),
+            reply_markup: kb.starsPackageMenu("purchase_pkg").reply_markup,
           },
         );
         await bot.answerCallbackQuery(query.id);
@@ -541,10 +554,13 @@ module.exports = (bot, context, botManager) => {
         });
 
         await sendOptionalSticker(chatId, "TOPUP_STICKER_ID");
-        await bot.sendMessage(
-          chatId,
+        await bot.editMessageText(
           `💳 <b>Balansni to'ldirish</b>\n\nTanlangan paket: <b>${packageInfo.stars} Stars</b>\nTo'lov summasi: <b>${packageInfo.price.toLocaleString("uz-UZ")} so'm</b>\n\n🏦 Karta raqam:\n<code>${CARD_NUMBER}</code>\n<b>Qabul qiluvchi:</b> A. T.\n\nIltimos, to'lovni amalga oshirib, chek rasmini yoki faylini botga yuboring.`,
-          { parse_mode: "HTML" },
+          {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: "HTML",
+          },
         );
         await bot.answerCallbackQuery(query.id);
         return;
@@ -637,13 +653,16 @@ module.exports = (bot, context, botManager) => {
       }
 
       if (data === "cancel_topup" || data === "cancel_buy_stars") {
+        await bot.answerCallbackQuery(query.id).catch(() => {});
         clearSession(context.botId, chatId);
-        await bot.sendMessage(
-          chatId,
-          "❌ Jarayon bekor qilindi.",
-          kb.backMenu(),
-        );
-        await bot.answerCallbackQuery(query.id);
+
+        await bot.editMessageText("❌ Jarayon bekor qilindi.", {
+          chat_id: chatId,
+          message_id: messageId,
+          parse_mode: "HTML",
+          reply_markup: kb.backMenu().reply_markup,
+        });
+
         return;
       }
 
@@ -652,19 +671,27 @@ module.exports = (bot, context, botManager) => {
         const price = Number(rawPrice);
 
         if (user.balance < price) {
-          await bot.sendMessage(
-            chatId,
+          await bot.editMessageText(
             `😔 Balansingiz yetarli emas. Balansingiz: <b>${user.balance} ⭐</b>\n\nYana biroz Stars yig'ib qayting.`,
-            { parse_mode: "HTML", ...kb.backMenu() },
+            {
+              chat_id: chatId,
+              message_id: messageId,
+              parse_mode: "HTML",
+              reply_markup: kb.backMenu().reply_markup,
+            },
           );
           return;
         }
 
         if (user.totalInvited < 10) {
-          await bot.sendMessage(
-            chatId,
+          await bot.editMessageText(
             `🚧 Yechib olish uchun kamida <b>10 ta referal</b> kerak.\n\nSizda hozircha: <b>${user.totalInvited}</b> ta referal bor.`,
-            { parse_mode: "HTML", ...kb.backMenu() },
+            {
+              chat_id: chatId,
+              message_id: messageId,
+              parse_mode: "HTML",
+              reply_markup: kb.backMenu().reply_markup,
+            },
           );
           return;
         }
@@ -706,11 +733,13 @@ module.exports = (bot, context, botManager) => {
           },
         );
 
-        await bot.deleteMessage(chatId, messageId).catch(() => {});
-        await bot.sendMessage(
-          chatId,
+        await bot.editMessageText(
           "🎉 Buyurtmangiz qabul qilindi!\nAdmin tekshiruvdan so'ng sizga xabar beradi.",
-          kb.backMenu(),
+          {
+            chat_id: chatId,
+            message_id: messageId,
+            reply_markup: kb.backMenu().reply_markup,
+          },
         );
         return;
       }
