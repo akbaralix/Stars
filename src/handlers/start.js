@@ -7,6 +7,7 @@ const {
   getSession,
   setSession,
   clearSession,
+  getGreeting,
 } = require("../runtime/sessionStore");
 
 module.exports = (bot, context, botManager) => {
@@ -17,6 +18,18 @@ module.exports = (bot, context, botManager) => {
     return bot.sendMessage(chatId, text, {
       parse_mode: options.parse_mode || "HTML",
       ...options,
+    });
+  }
+
+  function escapeHtml(value) {
+    return String(value || "").replace(/[<>&"]/g, (char) => {
+      const entities = {
+        "<": "&lt;",
+        ">": "&gt;",
+        "&": "&amp;",
+        '"': "&quot;",
+      };
+      return entities[char] || char;
     });
   }
 
@@ -56,25 +69,24 @@ module.exports = (bot, context, botManager) => {
   }
 
   async function getOrCreateUser(fromUser, referrerId) {
-    let user = await User.findOne({ telegramId: fromUser.id });
-
-    if (!user) {
-      user = await User.create({
-        botId: context.botId,
-        telegramId: fromUser.id,
-        firstName: fromUser.first_name,
-        username: fromUser.username,
-        invitedBy:
-          referrerId && Number(referrerId) !== fromUser.id
-            ? Number(referrerId)
-            : null,
-        isSubscribed: false,
-      });
-    } else {
-      user.firstName = fromUser.first_name;
-      user.username = fromUser.username;
-      await user.save();
-    }
+    const user = await User.findOneAndUpdate(
+      { telegramId: fromUser.id },
+      {
+        $set: {
+          firstName: fromUser.first_name,
+          username: fromUser.username,
+          botId: context.botId,
+        },
+        $setOnInsert: {
+          invitedBy:
+            referrerId && Number(referrerId) !== fromUser.id
+              ? Number(referrerId)
+              : null,
+          isSubscribed: false,
+        },
+      },
+      { upsert: true, new: true },
+    );
 
     return user;
   }
@@ -120,17 +132,19 @@ module.exports = (bot, context, botManager) => {
   }
 
   async function sendWelcome(chatId, fromUser) {
-    await bot.sendPhoto(chatId, photoPath, {
-      caption: `<b>🌟 Salom, <a href="tg://user?id=${fromUser.id}">${fromUser.first_name}</a>!</b>
+    const welcomeText = `<b>🌟 Salom, <a href="tg://user?id=${fromUser.id}">${fromUser.first_name}</a>!</b>
 
-<b>Stars olamiga xush kelibsiz!</b> ✨
+<b>Bu bot orqali siz:</b>
 
-Bu bot orqali siz:
-• do'stlaringizni taklif qilasiz 👥
+• Do'stlaringizni taklif qilasiz 👥
 • Stars yig'asiz 💫
-• sovg'alarga almashtirasiz 🎁
+• Sovg'alarga almashtirasiz 🎁
 
-<i>Pastdagi menyudan birini tanlang va hoziroq boshlang.</i>`,
+<i>Pastdagi menyudan birini tanlang.</i>`;
+
+    // Rasm bilan yuborilsa, keyinchalik editMessageText xato beradi.
+    // Shuning uchun sendMessage dan foydalanamiz yoki editMessageCaption ishlatish kerak.
+    await bot.sendMessage(chatId, welcomeText, {
       parse_mode: "HTML",
       ...kb.mainMenu(),
     });
@@ -200,22 +214,19 @@ Siz hozir o'zingiz uchun alohida <b>Stars ishlovchi bot</b> yaratishingiz mumkin
   });
 
   bot.on("message", async (msg) => {
-    if (!context.isPrimary || !msg.text) {
-      return;
-    }
-
-    const session = getSession(context.botId, msg.chat.id);
-    if (
-      !session ||
-      session.step !== "waiting_for_new_bot_token" ||
-      msg.text.startsWith("/")
-    ) {
-      return;
-    }
-
-    const token = msg.text.trim();
-
     try {
+      if (!context.isPrimary || !msg.text) return;
+
+      const session = getSession(context.botId, msg.chat.id);
+      if (
+        !session ||
+        session.step !== "waiting_for_new_bot_token" ||
+        msg.text.startsWith("/")
+      ) {
+        return;
+      }
+
+      const token = msg.text.trim();
       const result = await botManager.createAndLaunchBot({
         token,
         owner: msg.from,
@@ -252,27 +263,16 @@ Yangi bot muvaffaqiyatli ishga tushdi: <b>@${result.botDoc.username}</b>
 Endi shu botga kirib, admin menyusi orqali uni boshqarishingiz mumkin.`,
       );
     } catch (error) {
-      clearSession(context.botId, msg.chat.id);
-      console.error("Bot yaratishda xato:", error);
-      await bot.sendMessage(
-        msg.chat.id,
-        "⚠️ Bot yaratishda xato yuz berdi.\n\nTokenni tekshirib yana urinib ko'ring.",
-      );
+      if (msg && msg.chat) {
+        clearSession(context.botId, msg.chat.id);
+        console.error("Bot yaratishda xato:", error);
+        await bot
+          .sendMessage(
+            msg.chat.id,
+            "⚠️ Bot yaratishda xato yuz berdi.\n\nTokenni tekshirib yana urinib ko'ring.",
+          )
+          .catch(() => {});
+      }
     }
-  });
-
-  bot.on("callback_query", async (query) => {
-    if (!query.data.startsWith("check_sub_")) {
-      return;
-    }
-
-    const refData = query.data.replace("check_sub_", "");
-    const referrerId = refData === "none" ? null : refData;
-
-    await bot.answerCallbackQuery(query.id).catch(() => {});
-    await bot
-      .deleteMessage(query.message.chat.id, query.message.message_id)
-      .catch(() => {});
-    await handleStartLogic(query.message.chat.id, query.from, referrerId);
   });
 };

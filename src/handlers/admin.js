@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const BotModel = require("../../beckend/Bot");
 const { getUserModel } = require("../../beckend/User");
 const Kanal = require("../../beckend/Kanal");
@@ -135,6 +136,11 @@ module.exports = (bot, context, botManager) => {
           },
         );
         successCount += 1;
+
+        // Telegram rate limit uchun qisqa pauza
+        if (successCount % 20 === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
       } catch (error) {
         console.log(`Broadcast yuborilmadi ${user.telegramId}:`, error.message);
       }
@@ -546,18 +552,11 @@ module.exports = (bot, context, botManager) => {
     if (data.startsWith("manage_bot_") && context.isPrimary) {
       const botId = data.replace("manage_bot_", "");
 
-      // Boshqariladigan botni bazadan qidiramiz
       let managedBot;
-      try {
-        // Agar botId Telegram ID (raqam) bo'lsa va Mongoose xato bersa, findOne orqali qidiradi
-        managedBot = await BotModel.findOne({
-          $or: [{ _id: botId }, { telegramId: botId }],
-        });
-      } catch (err) {
-        // Agar Mongoose baribir ObjectId xatosi bersa, MongoDB to'g'ridan-to'g'ri kolleksiyasidan qidiramiz
-        managedBot = await BotModel.collection.findOne({
-          telegramId: Number(botId),
-        });
+      if (mongoose.Types.ObjectId.isValid(botId)) {
+        managedBot = await BotModel.findById(botId);
+      } else {
+        managedBot = await BotModel.findOne({ telegramId: Number(botId) });
       }
 
       if (!managedBot) {
@@ -584,7 +583,7 @@ module.exports = (bot, context, botManager) => {
           `Kerakli amalni tanlang.`,
         {
           parse_mode: "HTML",
-          ...kb.managementActions(String(managedBot._id)), // Xatolik bermasligi uchun 3-argument ichiga birlashtirildi!
+          ...kb.managementActions(String(managedBot._id)),
         },
       );
       await bot.answerCallbackQuery(query.id);
