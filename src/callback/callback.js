@@ -957,6 +957,19 @@ module.exports = (bot, context, botManager) => {
         return;
       }
 
+      if (data === "cancel_broadcast") {
+        if (!isOwner(query.from.id)) {
+          await bot.answerCallbackQuery(query.id);
+          return;
+        }
+        clearSession(context.botId, chatId);
+        await bot.editMessageText("❌ Xabar yuborish bekor qilindi.", {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+        });
+        await bot.answerCallbackQuery(query.id);
+        return;
+      }
       await bot.answerCallbackQuery(query.id).catch(() => {});
     } catch (error) {
       console.error("Callback xatoligi:", error);

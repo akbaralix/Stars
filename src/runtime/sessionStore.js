@@ -16,12 +16,16 @@ function clearSession(botId, chatId) {
   sessions.delete(makeKey(botId, chatId));
 }
 function getGreeting() {
-  const hour = new Date().getHours();
-  if (hour >= 20 || hour < 6) {
+  const hour = new Date().toLocaleString("uz-UZ", {
+    timeZone: "Asia/Tashkent",
+    hour: "numeric",
+    hour12: false,
+  });
+
+  const h = Number(hour);
+  if (h >= 20 || h < 6) {
     return "🌙 Hayrli kech";
-  }
-  // Kun: 06:00 - 19:59
-  else {
+  } else {
     return "☀️ Hayrli kun";
   }
 }

@@ -125,7 +125,7 @@ module.exports = (bot, context, botManager) => {
     await bot
       .sendMessage(
         user.invitedBy,
-        `🎉 Ajoyib yangilik!\n\n${fromUser.first_name} sizning havolangiz orqali botni to'liq faollashtirdi.\n\n💸 Balansingizga <b>+${currentStarsPrice} Stars</b> qo'shildi.`,
+        `🎉 Ajoyib yangilik!\n\n${fromUser.first_name} sizning havolangiz orqali botni to'liq faollashtirdi.\n\n💸 Balansingizga <b>+${currentStarsPrice} ⭐</b> qo'shildi.`,
         { parse_mode: "HTML" },
       )
       .catch(() => {});

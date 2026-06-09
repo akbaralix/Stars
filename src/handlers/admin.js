@@ -238,6 +238,13 @@ module.exports = (bot, context, botManager) => {
       await bot.sendMessage(
         chatId,
         "📨 Yubormoqchi bo'lgan xabaringizni yuboring.",
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "❌ Bekor qilish", callback_data: "cancel_broadcast" }],
+            ],
+          },
+        },
       );
       return;
     }
