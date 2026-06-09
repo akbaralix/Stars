@@ -114,7 +114,8 @@ async function ensurePrimaryBot(token, ownerId, defaultStarsPrice) {
   } else {
     botDoc.ownerId = Number(ownerId);
     botDoc.isPrimary = true;
-    botDoc.starsPrice = Number(botDoc.starsPrice) || Number(defaultStarsPrice) || 0;
+    botDoc.starsPrice =
+      Number(botDoc.starsPrice) || Number(defaultStarsPrice) || 0;
     botDoc.botTelegramId = me.id;
     botDoc.username = me.username;
     botDoc.title = me.first_name || botDoc.title;
@@ -132,6 +133,15 @@ async function launchStoredBots(skipBotId) {
     }
 
     try {
+      const validation = await validateToken(botDoc.token);
+      if (!validation.ok) {
+        console.log(
+          `🗑 Token yaroqsiz, bazadan o'chirildi: @${botDoc.username}`,
+        );
+        await BotModel.deleteOne({ _id: botDoc._id });
+        continue;
+      }
+
       await launchBot(botDoc);
     } catch (error) {
       console.error(`Bot ishga tushmadi @${botDoc.username}:`, error.message);

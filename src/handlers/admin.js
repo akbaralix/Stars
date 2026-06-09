@@ -480,6 +480,16 @@ module.exports = (bot, context, botManager) => {
       return;
     }
 
+    if (data === "cancel_broadcast") {
+      clearSession(context.botId, chatId);
+      await bot.editMessageText("❌ Xabar yuborish bekor qilindi.", {
+        chat_id: chatId,
+        message_id: query.message.message_id,
+      });
+      await bot.answerCallbackQuery(query.id);
+      return;
+    }
+
     if (data.startsWith("remove_channel_")) {
       const channel = await Kanal.findById(data.replace("remove_channel_", ""));
 
